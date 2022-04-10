@@ -7,7 +7,6 @@ export function task(func, options = {}) {
   }
   if (Deno.mainModule.endsWith(registrationModule)) {
     // should be able to retrieve registration location from cmdline arg
-    console.log("Registering task");
     console.log(JSON.stringify(registrationObject.convertToTask(func)));
   }
 

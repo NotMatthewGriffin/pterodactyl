@@ -1,4 +1,7 @@
+import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
 import { registrationObject } from "./pterodactyl.js";
+
+let selectedImage = null;
 
 function getNameFromFunction(f) {
   const fname = /function (.*?)\(/;
@@ -33,24 +36,19 @@ function generateAllVariables(name, count) {
 // TODO include file and image
 function generateContainer(name) {
   return {
-    image: "flyte:blahblah",
+    image: selectedImage,
     args: [
-      "pterodactyl-execute",
-      "--inputs",
-      "{{.input}}",
-      "--output-prefix",
-      "{{.outputPrefix}}",
-      "--raw-output-data-prefix",
-      "{{.rawOutputDataPrefix}}",
-      "--checkpoint-path",
-      "{{.checkpointOutputPrefix}}",
-      "--prev-checkpoint",
-      "{{.prevCheckpointPrefix}}",
-      "--",
+      "ls",
+      "/var/inputs",
       name,
     ],
     resources: {},
     env: [],
+    data_config: {
+      enabled: true,
+      input_path: "/var/inputs",
+      output_path: "/var/outputs",
+    },
   };
 }
 
@@ -85,6 +83,16 @@ function convertToTask(f, project = "flytesnacks", domain = "development") {
 }
 
 if (import.meta.main) {
+  const { pkgs, image } = parse(Deno.args);
+  if (!pkgs) {
+    console.warn("Must pass a file path to the workflow with `--pkgs`");
+    Deno.exit(1);
+  }
+  if (!image) {
+    console.warn("Must pass a container image with `--image`");
+    Deno.exit(1);
+  }
+  selectedImage = image;
   registrationObject.convertToTask = convertToTask;
-  const userWorkflow = await import("./" + Deno.args[0]);
+  const userWorkflow = await import("./" + pkgs);
 }
