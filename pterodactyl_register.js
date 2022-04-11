@@ -1,7 +1,5 @@
 import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
-import { registrationObject } from "./pterodactyl.js";
-
-let selectedImage = null;
+import { configObj } from "./pterodactyl.js";
 
 function getNameFromFunction(f) {
   const fname = /function (.*?)\(/;
@@ -33,26 +31,41 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
-// TODO include file and image
-function generateContainer(name) {
+function generateContainer(pkg, image, taskName) {
+  const inputDir = "/var/inputs";
+  const outputDir = "/var/outputs";
   return {
-    image: selectedImage,
+    image: image,
     args: [
-      "ls",
-      "/var/inputs",
-      name,
+      "deno",
+      "--allow-read",
+      "pterodactyl_execute.js",
+      "--pkgs",
+      pkg,
+      "--task",
+      taskName,
+      "--inputdir",
+      inputDir,
+      "--outputdir",
+      outputDir,
     ],
     resources: {},
     env: [],
     data_config: {
       enabled: true,
-      input_path: "/var/inputs",
-      output_path: "/var/outputs",
+      input_path: inputDir,
+      output_path: outputDir,
     },
   };
 }
 
-function convertToTask(f, project = "flytesnacks", domain = "development") {
+function convertToTask(
+  pkg,
+  image,
+  f,
+  project = "flytesnacks",
+  domain = "development",
+) {
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
 
@@ -76,10 +89,16 @@ function convertToTask(f, project = "flytesnacks", domain = "development") {
             variables: generateAllVariables("output", 1),
           },
         },
-        container: generateContainer(taskName),
+        container: generateContainer(pkg, image, taskName),
       },
     },
   };
+}
+
+function handleTaskRegistration(pkg, image, func) {
+  const taskobj = convertToTask(pkg, image, func);
+  console.log(JSON.stringify(taskobj));
+  return func;
 }
 
 if (import.meta.main) {
@@ -92,7 +111,6 @@ if (import.meta.main) {
     console.warn("Must pass a container image with `--image`");
     Deno.exit(1);
   }
-  selectedImage = image;
-  registrationObject.convertToTask = convertToTask;
+  configObj.taskTransformer = (f) => handleTaskRegistration(pkgs, image, f);
   const userWorkflow = await import("./" + pkgs);
 }
