@@ -37,8 +37,9 @@ function generateContainer(pkg, image, taskName) {
   return {
     image: image,
     args: [
-      "deno",
+      "run",
       "--allow-read",
+      "--allow-write",
       "pterodactyl_execute.js",
       "--pkgs",
       pkg,
