@@ -313,5 +313,6 @@ if (import.meta.main) {
     handleTaskRegistration(registeredTasks, callsObj, pkgs, image, f);
   configObj.workflowTransformer = (f) =>
     handleWorkflowRegistration(registeredTasks, callsObj, f);
-  const userWorkflow = await import(Deno.cwd() + "/./" + pkgs);
+  const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflow = await import(userWorkflowPath);
 }
