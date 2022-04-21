@@ -31,16 +31,25 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
+function getExecutionScript() {
+  if (import.meta.url.startsWith("file://")) {
+    return "pterodactyl_execute.js";
+  }
+  return import.meta.url.split("/").slice(0, -1).join("/") +
+    "/pterodactyl_execute.js";
+}
+
 function generateContainer(pkg, image, taskName) {
   const inputDir = "/var/inputs";
   const outputDir = "/var/outputs";
+
   return {
     image: image,
     args: [
       "run",
       "--allow-read",
       "--allow-write",
-      "pterodactyl_execute.js",
+      getExecutionScript(),
       "--pkgs",
       pkg,
       "--task",
