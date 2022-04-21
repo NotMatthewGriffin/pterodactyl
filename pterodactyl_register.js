@@ -31,16 +31,25 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
+function getExecutionScript() {
+  if (import.meta.url.startsWith("file://")) {
+    return "pterodactyl_execute.js";
+  }
+  return import.meta.url.split("/").slice(0, -1).join("/") +
+    "/pterodactyl_execute.js";
+}
+
 function generateContainer(pkg, image, taskName) {
   const inputDir = "/var/inputs";
   const outputDir = "/var/outputs";
+
   return {
     image: image,
     args: [
       "run",
       "--allow-read",
       "--allow-write",
-      "pterodactyl_execute.js",
+      getExecutionScript(),
       "--pkgs",
       pkg,
       "--task",
@@ -313,5 +322,6 @@ if (import.meta.main) {
     handleTaskRegistration(registeredTasks, callsObj, pkgs, image, f);
   configObj.workflowTransformer = (f) =>
     handleWorkflowRegistration(registeredTasks, callsObj, f);
-  const userWorkflow = await import(Deno.cwd() + "/./" + pkgs);
+  const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflow = await import(userWorkflowPath);
 }

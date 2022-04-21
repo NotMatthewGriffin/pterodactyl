@@ -67,5 +67,6 @@ if (import.meta.main) {
   configObj.taskTransformer = (f) => {
     return handleTaskExecution(inputdir, outputdir, task, f);
   };
-  const userWorkflow = await import("./" + pkgs);
+  const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflow = await import(userWorkflowPath);
 }
