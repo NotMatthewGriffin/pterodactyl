@@ -72,10 +72,10 @@ function generateContainer(pkg, image, taskName) {
 function convertToTask(
   pkg,
   image,
+  project,
+  domain,
+  version,
   f,
-  project = "flytesnacks",
-  domain = "staging",
-  version = "v1",
 ) {
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
@@ -86,7 +86,7 @@ function convertToTask(
       project: project,
       domain: domain,
       name: taskName,
-      version: "v1",
+      version: version,
     },
     spec: {
       template: {
@@ -157,10 +157,10 @@ function callToTaskNode(registeredTasks, nodeName, callNumber, call) {
 function convertToWorkflow(
   registeredTasks,
   callsObj,
+  project,
+  domain,
+  version,
   f,
-  project = "flytesnacks",
-  domain = "staging",
-  version = "v1",
 ) {
   const workflowName = getNameFromFunction(f);
   const inputCount = f.length;
@@ -283,16 +283,19 @@ function makeLaunchPlan(workflowobj) {
   };
 }
 
-function handleTaskRegistration(registeredTasks, callsObj, pkg, image, func) {
-  const [taskName, taskobj] = convertToTask(pkg, image, func);
+function handleTaskRegistration(registeredTasks, callsObj, pkg, image, project, domain, version, func) {
+  const [taskName, taskobj] = convertToTask(pkg, image, project, domain, version, func);
   registeredTasks[taskName] = taskobj;
   return inputCaptureObj(callsObj, taskName);
 }
 
-function handleWorkflowRegistration(registeredTasks, callsObj, func) {
+function handleWorkflowRegistration(registeredTasks, callsObj, project, domain, version, func) {
   const [workflowname, workflowobj] = convertToWorkflow(
     registeredTasks,
     callsObj,
+    project,
+    domain,
+    version,
     func,
   );
   const launchPlan = makeLaunchPlan(workflowobj);
@@ -305,7 +308,7 @@ function handleWorkflowRegistration(registeredTasks, callsObj, func) {
 }
 
 if (import.meta.main) {
-  const { pkgs, image } = parse(Deno.args);
+  const { pkgs, image, config, project, domain, version } = parse(Deno.args);
   if (!pkgs) {
     console.warn("Must pass a file path to the workflow with `--pkgs`");
     Deno.exit(1);
@@ -314,14 +317,40 @@ if (import.meta.main) {
     console.warn("Must pass a container image with `--image`");
     Deno.exit(1);
   }
+  if (!config) {
+    console.warn("Must pass a file path to config.json with `--config`");
+    Deno.exit(1);
+  }
+  const {admin: { endpoint, insecure }, pterodactyl = {} } = JSON.parse(Deno.readTextFileSync(`./${config}`));
+  if (!endpoint) {
+    console.warn("Must set admin.endpoint in config file");
+    Deno.exit(1);
+  }
+  const chosenProject = project || pterodactyl.project;
+  if (!chosenProject){
+    console.warn("Must pass a project with `--project` or set pterodactyl.project in config.json");
+    Deno.exit(1);
+  }
+  const chosenDomain = domain || pterodactyl.domain;
+  if (!chosenDomain){
+    console.warn("Must pass a project with `--domain` or set pterodactyl.domain in config.json");
+    Deno.exit(1);
+  }
+  const chosenVersion = version || pterodactyl.version;
+  if (!chosenVersion){
+    console.warn("Must pass a version with `--version` or set pterodactyl.version in config.json");
+    Deno.exit(1);
+  }
+
+
   // registered tasks are stored for use in workflow
   const registeredTasks = {};
   // calls made to each task are stored here
   const callsObj = {};
   configObj.taskTransformer = (f) =>
-    handleTaskRegistration(registeredTasks, callsObj, pkgs, image, f);
+    handleTaskRegistration(registeredTasks, callsObj, pkgs, image, chosenProject, chosenDomain, chosenVersion, f);
   configObj.workflowTransformer = (f) =>
-    handleWorkflowRegistration(registeredTasks, callsObj, f);
+    handleWorkflowRegistration(registeredTasks, callsObj, chosenProject, chosenDomain, chosenVersion, f);
   const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
 }
