@@ -91,7 +91,14 @@ function convertToTask(
     spec: {
       template: {
         type: "container",
-        metadata: {},
+        metadata: {
+          runtime: {
+            type: "OTHER",
+            version: "0.0.1",
+            flavor: "pterodactyl",
+          },
+          retries: {},
+        },
         interface: {
           inputs: {
             variables: generateAllVariables("input", inputCount),
@@ -120,8 +127,8 @@ function inputCaptureObj(callsObj, name) {
   };
 }
 
-function callToTaskNode(registeredTasks, nodeName, callNumber, call) {
-  const taskId = registeredTasks[nodeName].id;
+function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
+  const taskId = registeredObjs.tasks[nodeName].id;
   const inputs = [];
   for (
     let [i, [argNodeName, argNodeNumber, argOutputNumber]] of call.entries()
@@ -155,7 +162,7 @@ function callToTaskNode(registeredTasks, nodeName, callNumber, call) {
 }
 
 function convertToWorkflow(
-  registeredTasks,
+  registeredObjs,
   callsObj,
   project,
   domain,
@@ -178,7 +185,7 @@ function convertToWorkflow(
   for (let [nodeName, calls] of Object.entries(callsObj)) {
     for (let [callNumber, call] of calls.entries()) {
       const taskNode = callToTaskNode(
-        registeredTasks,
+        registeredObjs,
         nodeName,
         callNumber,
         call,
@@ -283,15 +290,38 @@ function makeLaunchPlan(workflowobj) {
   };
 }
 
-function handleTaskRegistration(registeredTasks, callsObj, pkg, image, project, domain, version, func) {
-  const [taskName, taskobj] = convertToTask(pkg, image, project, domain, version, func);
-  registeredTasks[taskName] = taskobj;
+function handleTaskRegistration(
+  registeredObjs,
+  callsObj,
+  pkg,
+  image,
+  project,
+  domain,
+  version,
+  func,
+) {
+  const [taskName, taskobj] = convertToTask(
+    pkg,
+    image,
+    project,
+    domain,
+    version,
+    func,
+  );
+  registeredObjs.tasks[taskName] = taskobj;
   return inputCaptureObj(callsObj, taskName);
 }
 
-function handleWorkflowRegistration(registeredTasks, callsObj, project, domain, version, func) {
+function handleWorkflowRegistration(
+  registeredObjs,
+  callsObj,
+  project,
+  domain,
+  version,
+  func,
+) {
   const [workflowname, workflowobj] = convertToWorkflow(
-    registeredTasks,
+    registeredObjs,
     callsObj,
     project,
     domain,
@@ -299,12 +329,37 @@ function handleWorkflowRegistration(registeredTasks, callsObj, project, domain, 
     func,
   );
   const launchPlan = makeLaunchPlan(workflowobj);
-  for (let [key, value] of Object.entries(registeredTasks)) {
-    console.log(JSON.stringify(value));
-  }
-  console.log(JSON.stringify(workflowobj));
-  console.log(JSON.stringify(launchPlan));
+  registeredObjs.workflows[workflowname] = workflowobj;
+  registeredObjs.launchplans[workflowname] = launchPlan;
   return func;
+}
+
+async function uploadToFlyte(endpoint, type, objs) {
+  let registrationResults = await Promise.all(objs.map((obj) => {
+    return fetch(`http://${endpoint}/api/v1/${type}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(obj),
+    });
+  }));
+  let jsonResults = await Promise.all(registrationResults.map((result) => {
+    return result.json();
+  }));
+  console.log(`Registered ${type}`);
+}
+
+async function uploadTasks(endpoint, objs) {
+  return await uploadToFlyte(endpoint, "tasks", objs);
+}
+
+async function uploadWorkflows(endpoint, objs) {
+  return await uploadToFlyte(endpoint, "workflows", objs);
+}
+
+async function uploadLaunchPlans(endpoint, objs) {
+  return await uploadToFlyte(endpoint, "launch_plans", objs);
 }
 
 if (import.meta.main) {
@@ -321,36 +376,63 @@ if (import.meta.main) {
     console.warn("Must pass a file path to config.json with `--config`");
     Deno.exit(1);
   }
-  const {admin: { endpoint, insecure }, pterodactyl = {} } = JSON.parse(Deno.readTextFileSync(`./${config}`));
+  const { admin: { endpoint, insecure }, pterodactyl = {} } = JSON.parse(
+    Deno.readTextFileSync(`./${config}`),
+  );
   if (!endpoint) {
     console.warn("Must set admin.endpoint in config file");
     Deno.exit(1);
   }
   const chosenProject = project || pterodactyl.project;
-  if (!chosenProject){
-    console.warn("Must pass a project with `--project` or set pterodactyl.project in config.json");
+  if (!chosenProject) {
+    console.warn(
+      "Must pass a project with `--project` or set pterodactyl.project in config.json",
+    );
     Deno.exit(1);
   }
   const chosenDomain = domain || pterodactyl.domain;
-  if (!chosenDomain){
-    console.warn("Must pass a project with `--domain` or set pterodactyl.domain in config.json");
+  if (!chosenDomain) {
+    console.warn(
+      "Must pass a project with `--domain` or set pterodactyl.domain in config.json",
+    );
     Deno.exit(1);
   }
   const chosenVersion = version || pterodactyl.version;
-  if (!chosenVersion){
-    console.warn("Must pass a version with `--version` or set pterodactyl.version in config.json");
+  if (!chosenVersion) {
+    console.warn(
+      "Must pass a version with `--version` or set pterodactyl.version in config.json",
+    );
     Deno.exit(1);
   }
 
-
-  // registered tasks are stored for use in workflow
-  const registeredTasks = {};
+  // registered Objs are stored for use in workflow
+  const registeredObjs = { tasks: {}, workflows: {}, launchplans: {} };
   // calls made to each task are stored here
   const callsObj = {};
   configObj.taskTransformer = (f) =>
-    handleTaskRegistration(registeredTasks, callsObj, pkgs, image, chosenProject, chosenDomain, chosenVersion, f);
+    handleTaskRegistration(
+      registeredObjs,
+      callsObj,
+      pkgs,
+      image,
+      chosenProject,
+      chosenDomain,
+      chosenVersion,
+      f,
+    );
   configObj.workflowTransformer = (f) =>
-    handleWorkflowRegistration(registeredTasks, callsObj, chosenProject, chosenDomain, chosenVersion, f);
+    handleWorkflowRegistration(
+      registeredObjs,
+      callsObj,
+      chosenProject,
+      chosenDomain,
+      chosenVersion,
+      f,
+    );
   const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
+  // User workflow has been imported; upload
+  await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
+  await uploadWorkflows(endpoint, Object.values(registeredObjs.workflows));
+  await uploadLaunchPlans(endpoint, Object.values(registeredObjs.launchplans));
 }
