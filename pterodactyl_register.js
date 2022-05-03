@@ -363,7 +363,7 @@ async function uploadLaunchPlans(endpoint, objs) {
 }
 
 if (import.meta.main) {
-  const { pkgs, image, config, project, domain, version } = parse(Deno.args);
+  const { pkgs, image, endpoint, project, domain, version } = parse(Deno.args);
   if (!pkgs) {
     console.warn("Must pass a file path to the workflow with `--pkgs`");
     Deno.exit(1);
@@ -372,35 +372,25 @@ if (import.meta.main) {
     console.warn("Must pass a container image with `--image`");
     Deno.exit(1);
   }
-  if (!config) {
-    console.warn("Must pass a file path to config.json with `--config`");
-    Deno.exit(1);
-  }
-  const { admin: { endpoint, insecure }, pterodactyl = {} } = JSON.parse(
-    Deno.readTextFileSync(`./${config}`),
-  );
   if (!endpoint) {
-    console.warn("Must set admin.endpoint in config file");
+    console.warn("Must pass an endpoint in with `--endpoint`");
     Deno.exit(1);
   }
-  const chosenProject = project || pterodactyl.project;
-  if (!chosenProject) {
+  if (!project) {
     console.warn(
-      "Must pass a project with `--project` or set pterodactyl.project in config.json",
+      "Must pass a project with `--project`",
     );
     Deno.exit(1);
   }
-  const chosenDomain = domain || pterodactyl.domain;
-  if (!chosenDomain) {
+  if (!domain) {
     console.warn(
-      "Must pass a project with `--domain` or set pterodactyl.domain in config.json",
+      "Must pass a project with `--domain`",
     );
     Deno.exit(1);
   }
-  const chosenVersion = version || pterodactyl.version;
-  if (!chosenVersion) {
+  if (!version) {
     console.warn(
-      "Must pass a version with `--version` or set pterodactyl.version in config.json",
+      "Must pass a version with `--version`",
     );
     Deno.exit(1);
   }
@@ -415,18 +405,18 @@ if (import.meta.main) {
       callsObj,
       pkgs,
       image,
-      chosenProject,
-      chosenDomain,
-      chosenVersion,
+      project,
+      domain,
+      version,
       f,
     );
   configObj.workflowTransformer = (f) =>
     handleWorkflowRegistration(
       registeredObjs,
       callsObj,
-      chosenProject,
-      chosenDomain,
-      chosenVersion,
+      project,
+      domain,
+      version,
       f,
     );
   const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
