@@ -45,6 +45,7 @@ function generateContainer(pkg, image, taskName) {
       "run",
       "--allow-read",
       "--allow-write",
+      "--allow-net",
       getExecutionScript(),
       "--pkgs",
       pkg,
@@ -415,7 +416,10 @@ if (import.meta.main) {
       version,
       f,
     );
-  const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflowPath =
+    pkgs.startsWith("https://") || pkgs.startsWith("http://")
+      ? pkgs
+      : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
   // User workflow has been imported; upload
   await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
