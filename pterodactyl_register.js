@@ -344,7 +344,6 @@ async function uploadToFlyte(endpoint, type, objs) {
   let jsonResults = await Promise.all(registrationResults.map((result) => {
     return result.json();
   }));
-  console.log(jsonResults);
   console.log(`Registered ${type}`);
 }
 

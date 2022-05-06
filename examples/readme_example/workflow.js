@@ -1,7 +1,7 @@
 import {
   task,
   workflow,
-} from "https://raw.githubusercontent.com/NotMatthewGriffin/pterodactyl/remote-script-example/pterodactyl.js";
+} from "https://raw.githubusercontent.com/NotMatthewGriffin/pterodactyl/main/pterodactyl.js";
 
 const sum = task(function sum(x, y) {
   return x + y;
