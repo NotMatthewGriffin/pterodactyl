@@ -343,6 +343,7 @@ async function uploadToFlyte(endpoint, type, objs) {
   let jsonResults = await Promise.all(registrationResults.map((result) => {
     return result.json();
   }));
+  console.log(jsonResults);
   console.log(`Registered ${type}`);
 }
 
@@ -415,7 +416,10 @@ if (import.meta.main) {
       version,
       f,
     );
-  const userWorkflowPath = pkgs.startsWith('https://') || pkgs.startsWith('http://') ? pkgs : `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflowPath =
+    pkgs.startsWith("https://") || pkgs.startsWith("http://")
+      ? pkgs
+      : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
   // User workflow has been imported; upload
   await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
