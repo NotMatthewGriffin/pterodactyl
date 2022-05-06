@@ -45,6 +45,7 @@ function generateContainer(pkg, image, taskName) {
       "run",
       "--allow-read",
       "--allow-write",
+      "--allow-net",
       getExecutionScript(),
       "--pkgs",
       pkg,
