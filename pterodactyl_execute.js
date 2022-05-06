@@ -63,6 +63,6 @@ if (import.meta.main) {
   configObj.taskTransformer = (f) => {
     return handleTaskExecution(inputdir, outputdir, task, f);
   };
-  const userWorkflowPath = `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflowPath = pkgs.startsWith('https://') || pkgs.startsWith('http://') ? pkgs : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
 }
