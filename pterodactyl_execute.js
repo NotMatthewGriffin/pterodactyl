@@ -2,14 +2,10 @@ import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
 import { configObj } from "./pterodactyl.js";
 
 function getNameFromFunction(f) {
-  const fname = /function (.*?)\(/;
-  const matchResult = f.toString().match(fname);
-  //TODO make this a hash of the function
-  if (!matchResult || matchResult.length <= 0) {
+  if (!f.name) {
     throw "Functions must be named";
   }
-  //  return first match group
-  return matchResult[1];
+  return f.name;
 }
 
 function collectInputFile(filename) {
