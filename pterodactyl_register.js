@@ -1,6 +1,8 @@
 import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
 import { configObj } from "./pterodactyl.js";
 
+const AsyncFunction = (async () => {}).constructor;
+
 function getNameFromFunction(f) {
   if (!f.name) {
     throw "Functions must be named";
@@ -110,10 +112,13 @@ function convertToTask(
   }];
 }
 
-function inputCaptureObj(callsObj, name) {
-  return (...args) => {
+function inputCaptureObj(callsObj, name, isAsync) {
+  let captureObj = (...args) => {
     let passedArguments = [];
     for (let arg of args) {
+      if (arg instanceof Promise) {
+        throw "Tasks cannot take Promises as input";
+      }
       passedArguments.push(arg);
     }
     if (!callsObj[name]) {
@@ -122,6 +127,10 @@ function inputCaptureObj(callsObj, name) {
     callsObj[name].push(passedArguments);
     return [name, callsObj[name].length - 1];
   };
+  if (isAsync) {
+    return async (...args) => captureObj(...args);
+  }
+  return captureObj;
 }
 
 function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
@@ -158,7 +167,7 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
   };
 }
 
-function convertToWorkflow(
+async function convertToWorkflow(
   registeredObjs,
   callsObj,
   project,
@@ -173,7 +182,9 @@ function convertToWorkflow(
     inputs.push(["start-node", 0, i]);
   }
 
-  const [outputNode, outputNodeNumber, outputNumber] = f(...inputs);
+  // make workflow function consistently async
+  const consistentFunc = f instanceof AsyncFunction ? f: async (...inputs) => f(...inputs);
+  const [outputNode, outputNodeNumber, outputNumber] = await consistentFunc(...inputs);
   let [promiseNodeId, promiseVar] = outputNode == "start-node"
     ? [outputNode, `input${outputNumber}`]
     : [`${outputNode}-${outputNodeNumber}`, "output0"];
@@ -297,6 +308,7 @@ function handleTaskRegistration(
   version,
   func,
 ) {
+  const isAsync = func instanceof AsyncFunction;
   const [taskName, taskobj] = convertToTask(
     pkg,
     image,
@@ -306,10 +318,18 @@ function handleTaskRegistration(
     func,
   );
   registeredObjs.tasks[taskName] = taskobj;
-  return inputCaptureObj(callsObj, taskName);
+  return inputCaptureObj(callsObj, taskName, isAsync);
 }
 
-function handleWorkflowRegistration(
+function handleWorkflowSeenInImport(
+  workflowsSeen,
+  func,
+) {
+  workflowsSeen.push(func);
+  return func;
+}
+
+async function handleWorkflowRegistration(
   registeredObjs,
   callsObj,
   project,
@@ -317,7 +337,7 @@ function handleWorkflowRegistration(
   version,
   func,
 ) {
-  const [workflowname, workflowobj] = convertToWorkflow(
+  const [workflowname, workflowobj] = await convertToWorkflow(
     registeredObjs,
     callsObj,
     project,
@@ -328,7 +348,6 @@ function handleWorkflowRegistration(
   const launchPlan = makeLaunchPlan(workflowobj);
   registeredObjs.workflows[workflowname] = workflowobj;
   registeredObjs.launchplans[workflowname] = launchPlan;
-  return func;
 }
 
 async function uploadToFlyte(endpoint, type, objs) {
@@ -396,6 +415,7 @@ if (import.meta.main) {
   const registeredObjs = { tasks: {}, workflows: {}, launchplans: {} };
   // calls made to each task are stored here
   const callsObj = {};
+  const workflowsSeen = [];
   configObj.taskTransformer = (f) =>
     handleTaskRegistration(
       registeredObjs,
@@ -408,12 +428,8 @@ if (import.meta.main) {
       f,
     );
   configObj.workflowTransformer = (f) =>
-    handleWorkflowRegistration(
-      registeredObjs,
-      callsObj,
-      project,
-      domain,
-      version,
+    handleWorkflowSeenInImport(
+      workflowsSeen,
       f,
     );
   const userWorkflowPath =
@@ -421,6 +437,16 @@ if (import.meta.main) {
       ? pkgs
       : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
+  await Promise.all(handleAsync.map((workflow) => {
+    return handleWorkflowRegistration(
+      registeredObjs,
+      callsObj,
+      project,
+      domain,
+      version,
+      workflow,
+    );
+  }));
   // User workflow has been imported; upload
   await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
   await uploadWorkflows(endpoint, Object.values(registeredObjs.workflows));
