@@ -1,6 +1,8 @@
 import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
 import { configObj } from "./pterodactyl.js";
 
+const AsyncFunction = (async () => {}).constructor;
+
 function getNameFromFunction(f) {
   if (!f.name) {
     throw "Functions must be named";
@@ -31,15 +33,25 @@ function writeOutput(outputdir, output) {
   Deno.writeTextFileSync(`${outputdir}/output0`, jsonOutput);
 }
 
-function handleTaskExecution(inputdir, outputdir, taskName, f) {
+function handleTaskSeenInImport(
+  taskSeen,
+  taskName,
+  f,
+) {
   const functionName = getNameFromFunction(f);
-  if (functionName != taskName) {
-    return f;
+  if (functionName == taskName && taskSeen.length == 0) {
+    taskSeen.push(f);
   }
-  const inputs = collectInputs(inputdir, f);
-  const output = f(...inputs);
-  writeOutput(outputdir, output);
   return f;
+}
+
+async function handleTaskExecution(inputdir, outputdir, f) {
+  const inputs = collectInputs(inputdir, f);
+  const consistentFunc = f instanceof AsyncFunction
+    ? f
+    : async (...inputs) => f(...inputs);
+  const output = await consistentFunc(...inputs);
+  writeOutput(outputdir, output);
 }
 
 if (import.meta.main) {
@@ -60,12 +72,15 @@ if (import.meta.main) {
     console.warn("Must pass an input directory `--outputdir`");
     Deno.exit(1);
   }
+  const taskSeen = [];
   configObj.taskTransformer = (f) => {
-    return handleTaskExecution(inputdir, outputdir, task, f);
+    return handleTaskSeenInImport(taskSeen, task, f);
   };
   const userWorkflowPath =
     pkgs.startsWith("https://") || pkgs.startsWith("http://")
       ? pkgs
       : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
+  const [taskFunction] = taskSeen;
+  await handleTaskExecution(inputdir, outputdir, taskFunction);
 }
