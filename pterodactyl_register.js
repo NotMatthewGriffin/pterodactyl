@@ -183,8 +183,12 @@ async function convertToWorkflow(
   }
 
   // make workflow function consistently async
-  const consistentFunc = f instanceof AsyncFunction ? f: async (...inputs) => f(...inputs);
-  const [outputNode, outputNodeNumber, outputNumber] = await consistentFunc(...inputs);
+  const consistentFunc = f instanceof AsyncFunction
+    ? f
+    : async (...inputs) => f(...inputs);
+  const [outputNode, outputNodeNumber, outputNumber] = await consistentFunc(
+    ...inputs,
+  );
   let [promiseNodeId, promiseVar] = outputNode == "start-node"
     ? [outputNode, `input${outputNumber}`]
     : [`${outputNode}-${outputNodeNumber}`, "output0"];
