@@ -437,7 +437,7 @@ if (import.meta.main) {
       ? pkgs
       : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
-  await Promise.all(handleAsync.map((workflow) => {
+  await Promise.all(workflowsSeen.map((workflow) => {
     return handleWorkflowRegistration(
       registeredObjs,
       callsObj,
