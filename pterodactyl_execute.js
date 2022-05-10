@@ -39,10 +39,9 @@ function handleTaskSeenInImport(
   f,
 ) {
   const functionName = getNameFromFunction(f);
-  if (functionName != taskName || taskSeen.length > 0) {
-    return f;
+  if (functionName == taskName && taskSeen.length == 0) {
+    taskSeen.push(f);
   }
-  taskSeen.push(f);
   return f;
 }
 
