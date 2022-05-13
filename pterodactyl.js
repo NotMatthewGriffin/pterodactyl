@@ -1,4 +1,4 @@
-globalThis.pterodactylConfig = {
+globalThis.pterodactylConfig = globalThis.pterodactylConfig ?? {
   taskTransformer: (f) => f,
   workflowTransformer: (f) => f,
 };
