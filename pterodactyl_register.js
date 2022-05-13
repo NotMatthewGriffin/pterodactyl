@@ -1,5 +1,5 @@
 import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
-import { configObj } from "./pterodactyl.js";
+import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
 
@@ -420,7 +420,7 @@ if (import.meta.main) {
   // calls made to each task are stored here
   const callsObj = {};
   const workflowsSeen = [];
-  configObj.taskTransformer = (f) =>
+  globalThis.pterodactylConfig.taskTransformer = (f) =>
     handleTaskRegistration(
       registeredObjs,
       callsObj,
@@ -431,7 +431,7 @@ if (import.meta.main) {
       version,
       f,
     );
-  configObj.workflowTransformer = (f) =>
+  globalThis.pterodactylConfig.workflowTransformer = (f) =>
     handleWorkflowSeenInImport(
       workflowsSeen,
       f,

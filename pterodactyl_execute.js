@@ -1,5 +1,5 @@
 import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
-import { configObj } from "./pterodactyl.js";
+import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
 
@@ -73,7 +73,7 @@ if (import.meta.main) {
     Deno.exit(1);
   }
   const taskSeen = [];
-  configObj.taskTransformer = (f) => {
+  globalThis.pterodactylConfig.taskTransformer = (f) => {
     return handleTaskSeenInImport(taskSeen, task, f);
   };
   const userWorkflowPath =
