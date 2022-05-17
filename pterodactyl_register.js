@@ -75,6 +75,7 @@ function convertToTask(
   domain,
   version,
   f,
+  options,
 ) {
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
@@ -89,7 +90,7 @@ function convertToTask(
     },
     spec: {
       template: {
-        type: "container",
+        type: "javascript-task",
         metadata: {
           runtime: {
             type: "OTHER",
@@ -97,6 +98,12 @@ function convertToTask(
             flavor: "pterodactyl",
           },
           retries: {},
+          ...("cache_version" in options
+            ? {
+              discoverable: true,
+              discovery_version: options.cache_version.toString(),
+            }
+            : {}),
         },
         interface: {
           inputs: {
@@ -311,6 +318,7 @@ function handleTaskRegistration(
   domain,
   version,
   func,
+  options,
 ) {
   const isAsync = func instanceof AsyncFunction;
   const [taskName, taskobj] = convertToTask(
@@ -320,6 +328,7 @@ function handleTaskRegistration(
     domain,
     version,
     func,
+    options,
   );
   registeredObjs.tasks[taskName] = taskobj;
   return inputCaptureObj(callsObj, taskName, isAsync);
@@ -420,7 +429,7 @@ if (import.meta.main) {
   // calls made to each task are stored here
   const callsObj = {};
   const workflowsSeen = [];
-  globalThis.pterodactylConfig.taskTransformer = (f) =>
+  globalThis.pterodactylConfig.taskTransformer = (f, options) =>
     handleTaskRegistration(
       registeredObjs,
       callsObj,
@@ -430,6 +439,7 @@ if (import.meta.main) {
       domain,
       version,
       f,
+      options,
     );
   globalThis.pterodactylConfig.workflowTransformer = (f) =>
     handleWorkflowSeenInImport(
