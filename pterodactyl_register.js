@@ -141,7 +141,10 @@ function inputCaptureObj(callsObj, name, isAsync) {
 }
 
 function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
-  const taskId = registeredObjs.tasks[nodeName].id;
+  const taskId =
+    (nodeName in registeredObjs.tasks
+      ? registeredObjs.tasks[nodeName]
+      : registeredObjs.taskReferences[nodeName]).id;
   const inputs = [];
   for (
     let [i, [argNodeName, argNodeNumber, argOutputNumber]] of call.entries()
@@ -334,6 +337,18 @@ function handleTaskRegistration(
   return inputCaptureObj(callsObj, taskName, isAsync);
 }
 
+function handleTaskReferenceSeen(
+  registeredObjs,
+  callsObj,
+  { project, domain, name, version },
+) {
+  const refName = [project, domain, name, version].join("-");
+  registeredObjs.taskReferences[refName] = {
+    id: { resource_type: "TASK", project, domain, name, version },
+  };
+  return inputCaptureObj(callsObj, refName);
+}
+
 function handleWorkflowSeenInImport(
   workflowsSeen,
   func,
@@ -425,7 +440,12 @@ if (import.meta.main) {
   }
 
   // registered Objs are stored for use in workflow
-  const registeredObjs = { tasks: {}, workflows: {}, launchplans: {} };
+  const registeredObjs = {
+    tasks: {},
+    workflows: {},
+    launchplans: {},
+    taskReferences: {},
+  };
   // calls made to each task are stored here
   const callsObj = {};
   const workflowsSeen = [];
@@ -441,6 +461,8 @@ if (import.meta.main) {
       f,
       options,
     );
+  globalThis.pterodactylConfig.taskReferenceTransformer = (id) =>
+    handleTaskReferenceSeen(registeredObjs, callsObj, id);
   globalThis.pterodactylConfig.workflowTransformer = (f) =>
     handleWorkflowSeenInImport(
       workflowsSeen,

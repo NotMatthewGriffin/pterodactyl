@@ -1,6 +1,7 @@
 globalThis.pterodactylConfig = globalThis.pterodactylConfig ?? {
   taskTransformer: (f) => f,
   workflowTransformer: (f) => f,
+  taskReferenceTransformer: ({ project, domain, name, version }) => () => { throw "taskReference can't be used locally"},
 };
 
 export function task(func, options = {}) {
@@ -10,6 +11,18 @@ export function task(func, options = {}) {
   return window.pterodactylConfig.taskTransformer(func, options);
 }
 
+export function taskReference({ project, domain, name, version }) {
+  if (!(project && domain && name && version)) {
+    throw "taskReference must recieve project, domain, name, and version";
+  }
+  return window.pterodactylConfig.taskReferenceTransformer({
+    project,
+    domain,
+    name,
+    version,
+  });
+}
+
 export function workflow(func, options = {}) {
   if (typeof (func) !== "function") {
     throw "workflow must recieve a function";
@@ -17,6 +30,10 @@ export function workflow(func, options = {}) {
   return window.pterodactylConfig.workflowTransformer(func, options);
 }
 
-const pterodactyl = { task: task, workflow: workflow };
+const pterodactyl = {
+  task: task,
+  taskReference: taskReference,
+  workflow: workflow,
+};
 
 export default pterodactyl;
