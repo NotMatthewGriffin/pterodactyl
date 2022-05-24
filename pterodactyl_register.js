@@ -29,9 +29,6 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
-function generateUntypedConfig(variables) {
-  Object.keys(variables).map((name) => [`input-${name}`, "untyped"]);
-}
 
 function getExecutionScript() {
   if (import.meta.url.startsWith("file://")) {
