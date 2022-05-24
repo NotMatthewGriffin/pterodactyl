@@ -29,6 +29,10 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
+function generateUntypedConfig(variables) {
+  Object.keys(variables).map((name) => [`input-${name}`, "untyped"]);
+}
+
 function getExecutionScript() {
   if (import.meta.url.startsWith("file://")) {
     return "pterodactyl_execute.js";
@@ -79,6 +83,8 @@ function convertToTask(
 ) {
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
+  const inputs = generateAllVariables("input", inputCount);
+  const output = generateAllVariables("output", 1);
 
   return [taskName, {
     id: {
@@ -107,13 +113,21 @@ function convertToTask(
         },
         interface: {
           inputs: {
-            variables: generateAllVariables("input", inputCount),
+            variables: inputs,
           },
           outputs: {
-            variables: generateAllVariables("output", 1),
+            variables: output,
           },
         },
         container: generateContainer(pkg, image, taskName),
+        config: {
+          ...Object.fromEntries(
+            Object.keys(inputs).map((name) => [`input-${name}`, "untyped"]),
+          ),
+          ...Object.fromEntries(
+            Object.keys(output).map((name) => [`output-${name}`, "untyped"]),
+          ),
+        },
       },
     },
   }];
