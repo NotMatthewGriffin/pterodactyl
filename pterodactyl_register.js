@@ -29,7 +29,6 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
-
 function getExecutionScript() {
   if (import.meta.url.startsWith("file://")) {
     return "pterodactyl_execute.js";

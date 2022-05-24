@@ -1,7 +1,10 @@
 globalThis.pterodactylConfig = globalThis.pterodactylConfig ?? {
   taskTransformer: (f) => f,
   workflowTransformer: (f) => f,
-  taskReferenceTransformer: ({ project, domain, name, version }) => () => { throw "taskReference can't be used locally"},
+  taskReferenceTransformer: ({ project, domain, name, version }) =>
+    () => {
+      throw "taskReference can't be used locally";
+    },
 };
 
 export function task(func, options = {}) {
