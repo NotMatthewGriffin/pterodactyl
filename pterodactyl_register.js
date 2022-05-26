@@ -142,7 +142,7 @@ function inputCaptureObj(callsObj, name, isAsync) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return [name, callsObj[name].length - 1];
+    return [`${name}-${callsObj[name].length - 1}`, "output0"];
   };
   if (isAsync) {
     return async (...args) => captureObj(...args);
@@ -157,18 +157,15 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
       : registeredObjs.taskReferences[nodeName]).id;
   const inputs = [];
   for (
-    let [i, [argNodeName, argNodeNumber, argOutputNumber]] of call.entries()
+    let [i, [promiseNodeId, outputName]] of call.entries()
   ) {
     let varName = `input${i}`;
-    let [promiseNodeId, promiseVar] = argNodeName == "start-node"
-      ? [argNodeName, `input${argOutputNumber}`]
-      : [`${argNodeName}-${argNodeNumber}`, "output0"];
     inputs.push({
       var: varName,
       binding: {
         promise: {
           node_id: promiseNodeId,
-          var: promiseVar,
+          var: outputName,
         },
       },
     });
@@ -199,19 +196,16 @@ async function convertToWorkflow(
   const inputCount = f.length;
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
-    inputs.push(["start-node", 0, i]);
+    inputs.push(["start-node", `input${i}`]);
   }
 
   // make workflow function consistently async
   const consistentFunc = f instanceof AsyncFunction
     ? f
     : async (...inputs) => f(...inputs);
-  const [outputNode, outputNodeNumber, outputNumber] = await consistentFunc(
+  const [promiseNodeId, outputName] = await consistentFunc(
     ...inputs,
   );
-  let [promiseNodeId, promiseVar] = outputNode == "start-node"
-    ? [outputNode, `input${outputNumber}`]
-    : [`${outputNode}-${outputNodeNumber}`, "output0"];
 
   const taskNodes = [];
   for (let [nodeName, calls] of Object.entries(callsObj)) {
@@ -256,8 +250,8 @@ async function convertToWorkflow(
                 var: "output0",
                 binding: {
                   promise: {
-                    node_id: `${outputNode}-${outputNodeNumber}`,
-                    var: "output0",
+                    node_id: promiseNodeId,
+                    var: outputName,
                   },
                 },
               },
@@ -270,7 +264,7 @@ async function convertToWorkflow(
             binding: {
               promise: {
                 node_id: promiseNodeId,
-                var: promiseVar,
+                var: outputName,
               },
             },
           },
