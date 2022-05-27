@@ -150,6 +150,36 @@ function inputCaptureObj(callsObj, name, isAsync) {
   return captureObj;
 }
 
+function getOutputNameFromTask(task) {
+  const outputNames = Object.keys(
+    task.spec.template.interface.outputs.variables,
+  );
+  if (outputNames.length != 1) {
+    throw "Unexpected number of ouputs";
+  }
+  return outputNames[0];
+}
+
+function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
+  return (...args) => {
+    let passedArguments = [];
+    for (let arg of args) {
+      if (arg instanceof Promise) {
+        throw "Tasks cannot take Promises as input";
+      }
+      passedArguments.push(arg);
+    }
+    if (!callsObj[name]) {
+      callsObj[name] = [];
+    }
+    callsObj[name].push(passedArguments);
+    return [
+      `${name}-${callsObj[name].length - 1}`,
+      getOutputNameFromTask(registeredObjs.taskReferences[name]),
+    ];
+  };
+}
+
 function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
   const taskId =
     (nodeName in registeredObjs.tasks
@@ -350,7 +380,7 @@ function handleTaskReferenceSeen(
   registeredObjs.taskReferences[refName] = {
     id: { resource_type: "TASK", project, domain, name, version },
   };
-  return inputCaptureObj(callsObj, refName);
+  return taskReferenceInputCaptureObj(registeredObjs, callsObj, refName);
 }
 
 function handleWorkflowSeenInImport(
@@ -359,6 +389,28 @@ function handleWorkflowSeenInImport(
 ) {
   workflowsSeen.push(func);
   return func;
+}
+
+async function populateTaskReferenceInformation(endpoint, taskReference) {
+  const { project, domain, name, version } = taskReference.id;
+  const info = await fetch(
+    `http://${endpoint}/api/v1/tasks/${project}/${domain}/${name}/${version}`,
+    {},
+  ).then((r) => r.json());
+  if (info.error) {
+    console.error("Error occured while retrieving task reference information");
+    console.error(JSON.stringify(info, null, 2));
+    throw "Missing Task Reference";
+  }
+  taskReference.spec = { template: info?.closure?.compiled_task?.template };
+}
+
+async function populateAllTaskReferenceInformation(endpoint, taskReferences) {
+  await Promise.all(
+    Object.values(taskReferences).map((reference) =>
+      populateTaskReferenceInformation(endpoint, reference)
+    ),
+  );
 }
 
 async function handleWorkflowRegistration(
@@ -477,6 +529,10 @@ if (import.meta.main) {
       ? pkgs
       : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
+  await populateAllTaskReferenceInformation(
+    endpoint,
+    registeredObjs.taskReferences,
+  );
   await Promise.all(workflowsSeen.map((workflow) => {
     return handleWorkflowRegistration(
       registeredObjs,
