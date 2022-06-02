@@ -117,6 +117,7 @@ function convertToTask(
         },
         container: generateContainer(pkg, image, taskName),
         config: {
+          inputOrder: Object.keys(inputs).join(","),
           ...Object.fromEntries(
             Object.keys(inputs).map((name) => [`input-${name}`, "untyped"]),
           ),
@@ -129,27 +130,6 @@ function convertToTask(
   }];
 }
 
-function inputCaptureObj(callsObj, name, isAsync) {
-  let captureObj = (...args) => {
-    let passedArguments = [];
-    for (let arg of args) {
-      if (arg instanceof Promise) {
-        throw "Tasks cannot take Promises as input";
-      }
-      passedArguments.push(arg);
-    }
-    if (!callsObj[name]) {
-      callsObj[name] = [];
-    }
-    callsObj[name].push(passedArguments);
-    return [`${name}-${callsObj[name].length - 1}`, "output0"];
-  };
-  if (isAsync) {
-    return async (...args) => captureObj(...args);
-  }
-  return captureObj;
-}
-
 function getOutputNameFromTask(task) {
   const outputNames = Object.keys(
     task.spec.template.interface.outputs.variables,
@@ -160,14 +140,72 @@ function getOutputNameFromTask(task) {
   return outputNames[0];
 }
 
-function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
-  return (...args) => {
+function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
+  let captureObj = (...args) => {
     let passedArguments = [];
-    for (let arg of args) {
+    const reference = registeredObjs.tasks[name];
+    const inputOrder = reference.spec.template.config?.inputOrder.split(",");
+    if (inputOrder.length != args.length) {
+      throw `Wrong number of inputs recieved by task ${name}; takes ${inputOrder.length}, recieved ${args.length}`;
+    }
+    for (let i = 0; i < inputOrder.length; i++) {
+      let [name, arg] = [inputOrder[i], args[i]];
       if (arg instanceof Promise) {
         throw "Tasks cannot take Promises as input";
       }
-      passedArguments.push(arg);
+      passedArguments.push([name, arg]);
+    }
+    if (!callsObj[name]) {
+      callsObj[name] = [];
+    }
+    callsObj[name].push(passedArguments);
+    return [`${name}-${callsObj[name].length - 1}`, getOutputNameFromTask(reference)];
+  };
+  if (isAsync) {
+    return async (...args) => captureObj(...args);
+  }
+  return captureObj;
+}
+
+function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
+  return (...args) => {
+    let passedArguments = [];
+    const reference = registeredObjs.taskReferences[name];
+    if (reference.spec.template.config?.inputOrder) {
+      const inputOrder = reference.spec.template.config?.inputOrder.split(",");
+      if (
+        inputOrder.length !=
+          Object.keys(reference.spec.template.interface.inputs.variables).length
+      ) {
+        throw "Length of inputs in input order does not match task interface";
+      }
+      if (inputOrder.length != args.length) {
+        throw `Wrong number of inputs recieved by task reference; takes ${inputOrder.length}, recieved ${args.length}`;
+      }
+      for (let i = 0; i < inputOrder.length; i++) {
+        let [name, arg] = [inputOrder[i], args[i]];
+        if (arg instanceof Promise) {
+          throw "Tasks cannot take Promises as input";
+        }
+        passedArguments.push([name, arg]);
+      }
+    } else {
+      const expected_inputs = Object.keys(
+        reference.spec.template.interface.inputs.variables,
+      );
+      if (args.length != 1) {
+        throw `Incorrect number of inputs to task reference without an inputOrder config; expected object with only properties ${expected_inputs}`;
+      }
+      if (Object.keys(args[0]).length != expected_inputs.length) {
+        throw `Incorrect number of inputs to task reference without an inputOrder config; expected object with only properties ${expected_inputs}`;
+      }
+      for (let name of expected_inputs) {
+        let arg = args[0][name];
+        if (arg instanceof Promise) {
+          throw "Tasks cannot take Promises as input";
+        }
+        passedArguments.push([name, arg]);
+      }
     }
     if (!callsObj[name]) {
       callsObj[name] = [];
@@ -175,7 +213,7 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
     callsObj[name].push(passedArguments);
     return [
       `${name}-${callsObj[name].length - 1}`,
-      getOutputNameFromTask(registeredObjs.taskReferences[name]),
+      getOutputNameFromTask(reference),
     ];
   };
 }
@@ -187,9 +225,8 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
       : registeredObjs.taskReferences[nodeName]).id;
   const inputs = [];
   for (
-    let [i, [promiseNodeId, outputName]] of call.entries()
+    let [varName, [promiseNodeId, outputName]] of call
   ) {
-    let varName = `input${i}`;
     inputs.push({
       var: varName,
       binding: {
@@ -368,7 +405,7 @@ function handleTaskRegistration(
     options,
   );
   registeredObjs.tasks[taskName] = taskobj;
-  return inputCaptureObj(callsObj, taskName, isAsync);
+  return inputCaptureObj(registeredObjs, callsObj, taskName, isAsync);
 }
 
 function handleTaskReferenceSeen(
