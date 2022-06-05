@@ -159,12 +159,29 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return [`${name}-${callsObj[name].length - 1}`, getOutputNameFromTask(reference)];
+    return [
+      `${name}-${callsObj[name].length - 1}`,
+      getOutputNameFromTask(reference),
+    ];
   };
   if (isAsync) {
     return async (...args) => captureObj(...args);
   }
   return captureObj;
+}
+
+function sameValues(arr1, arr2) {
+  if (arr1.length != arr2.length) {
+    return false;
+  }
+  arr1.sort();
+  arr2.sort();
+  for (let i = 0; i < arr1.length; i++) {
+    if (arr1[i] != arr2[i]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
@@ -190,14 +207,23 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         passedArguments.push([name, arg]);
       }
     } else {
-      const expected_inputs = Object.keys(
-        reference.spec.template.interface.inputs.variables,
-      );
-      if (args.length != 1) {
-        throw `Incorrect number of inputs to task reference without an inputOrder config; expected object with only properties ${expected_inputs}`;
-      }
-      if (Object.keys(args[0]).length != expected_inputs.length) {
-        throw `Incorrect number of inputs to task reference without an inputOrder config; expected object with only properties ${expected_inputs}`;
+      const expected_inputs = reference.spec.template.interface.inputs.variables
+        ? Object.keys(
+          reference.spec.template.interface.inputs.variables,
+        )
+        : [];
+      if (
+        (expected_inputs.length == 0 &&
+          !(args.length == 0 ||
+            args.length == 1 && Object.keys(args[0]).length == 0)) ||
+        (expected_inputs.length > 0 &&
+          (args.length != 1 ||
+            !sameValues(Object.keys(args[0]), expected_inputs)))
+      ) {
+        const expectedError = expected_inputs.length
+          ? `only properties: ${expected_inputs}`
+          : "no properties";
+        throw `Incorrect number of inputs to task reference without an inputOrder config; expected object with ${expectedError}`;
       }
       for (let name of expected_inputs) {
         let arg = args[0][name];
