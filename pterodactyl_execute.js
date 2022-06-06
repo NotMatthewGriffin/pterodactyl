@@ -20,11 +20,19 @@ function collectInputFile(filename) {
   }
 }
 
-function collectInputs(inputdir, f) {
+function collectInputs(inputdir, f, options) {
+  if (options?.paramNames && f.length != options.paramNames.length) {
+    throw "Provided paramNames and function parameter count do not match";
+  }
   const inputs = new Array(f.length);
   for (let i = 0; i < f.length; i++) {
-    inputs[i] = collectInputFile(`${inputdir}/input${i}`);
+    inputs[i] = collectInputFile(
+      options?.paramNames
+        ? `${inputdir}/${options.paramNames[i]}`
+        : `${inputdir}/input${i}`,
+    );
   }
+
   return inputs;
 }
 
@@ -37,16 +45,17 @@ function handleTaskSeenInImport(
   taskSeen,
   taskName,
   f,
+  options,
 ) {
   const functionName = getNameFromFunction(f);
   if (functionName == taskName && taskSeen.length == 0) {
-    taskSeen.push(f);
+    taskSeen.push([f, options]);
   }
   return f;
 }
 
-async function handleTaskExecution(inputdir, outputdir, f) {
-  const inputs = collectInputs(inputdir, f);
+async function handleTaskExecution(inputdir, outputdir, f, options) {
+  const inputs = collectInputs(inputdir, f, options);
   const consistentFunc = f instanceof AsyncFunction
     ? f
     : async (...inputs) => f(...inputs);
@@ -73,14 +82,14 @@ if (import.meta.main) {
     Deno.exit(1);
   }
   const taskSeen = [];
-  globalThis.pterodactylConfig.taskTransformer = (f) => {
-    return handleTaskSeenInImport(taskSeen, task, f);
+  globalThis.pterodactylConfig.taskTransformer = (f, options) => {
+    return handleTaskSeenInImport(taskSeen, task, f, options);
   };
   const userWorkflowPath =
     pkgs.startsWith("https://") || pkgs.startsWith("http://")
       ? pkgs
       : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
-  const [taskFunction] = taskSeen;
-  await handleTaskExecution(inputdir, outputdir, taskFunction);
+  const [[taskFunction, options]] = taskSeen;
+  await handleTaskExecution(inputdir, outputdir, taskFunction, options);
 }
