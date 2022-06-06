@@ -29,6 +29,14 @@ function generateAllVariables(name, count) {
   return variables;
 }
 
+function generateAllNamedVariables(names) {
+  let variables = {};
+  for (let name of names) {
+    variables = { ...variables, ...generateVariable(name) };
+  }
+  return variables;
+}
+
 function getExecutionScript() {
   if (import.meta.url.startsWith("file://")) {
     return "pterodactyl_execute.js";
@@ -68,6 +76,38 @@ function generateContainer(pkg, image, taskName) {
   };
 }
 
+function checkParamNames(options, inputCount) {
+  checkParamNamesCardinality(options, inputCount);
+  checkParamNamesContent(options);
+}
+
+function checkParamNamesCardinality(options, inputCount) {
+  if (options?.paramNames && options.paramNames.length != inputCount) {
+    throw `Provided paramNames array does not match function parameter count; function has ${inputCount} parameters, provided ${options.paramNames.length} paramNames`;
+  }
+}
+
+function checkParamNamesContent(options) {
+  if (
+    options?.paramNames &&
+    options.paramNames.filter((name) => name.includes(",")).length > 0
+  ) {
+    throw "Provided paramNames array contain entries with commas; paramNames entries cannot include commas";
+  }
+  if (
+    options?.paramNames &&
+    options.paramNames.filter((name) => name == "").length > 0
+  ) {
+    throw "Provided paramNames array contain empty entries; paramNames entries cannot be empty";
+  }
+  if ( 
+    options?.paramNames &&
+    options.paramNames.length != (new Set(options.paramNames)).size
+  ) {
+    throw "Provided paramNames array contain duplicate entries; paramNames entries cannot be duplicates";
+  }
+}
+
 function convertToTask(
   pkg,
   image,
@@ -79,7 +119,11 @@ function convertToTask(
 ) {
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
-  const inputs = generateAllVariables("input", inputCount);
+  checkParamNames(options, inputCount);
+
+  const inputs = options?.paramNames
+    ? generateAllNamedVariables(options.paramNames)
+    : generateAllVariables("input", inputCount);
   const output = generateAllVariables("output", 1);
 
   return [taskName, {
@@ -284,12 +328,18 @@ async function convertToWorkflow(
   domain,
   version,
   f,
+  options,
 ) {
   const workflowName = getNameFromFunction(f);
   const inputCount = f.length;
+  checkParamNames(options, inputCount);
+
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
-    inputs.push(["start-node", `input${i}`]);
+    inputs.push([
+      "start-node",
+      options?.paramNames ? options?.paramNames[i] : `input${i}`,
+    ]);
   }
 
   // make workflow function consistently async
@@ -328,7 +378,9 @@ async function convertToWorkflow(
         id: workflowId,
         interface: {
           inputs: {
-            variables: generateAllVariables("input", inputCount),
+            variables: options?.paramNames
+              ? generateAllNamedVariables(options.paramNames)
+              : generateAllVariables("input", inputCount),
           },
           outputs: {
             variables: generateAllVariables("output", 1),
@@ -367,15 +419,20 @@ async function convertToWorkflow(
   }];
 }
 
-function makeLaunchPlan(workflowobj) {
+function makeLaunchPlan(workflowobj, options) {
   let parameters = {};
+  const inputCount =
+    Object.keys(workflowobj.spec.template.interface.inputs.variables).length;
+  checkParamNames(options, inputCount);
+
   for (
     let i = 0;
-    i <
-      Object.keys(workflowobj.spec.template.interface.inputs.variables).length;
+    i < inputCount;
     i++
   ) {
-    const parameterName = `input${i}`;
+    const parameterName = options?.paramNames
+      ? options?.paramNames[i]
+      : `input${i}`;
     parameters = {
       ...parameters,
       ...{
@@ -449,8 +506,9 @@ function handleTaskReferenceSeen(
 function handleWorkflowSeenInImport(
   workflowsSeen,
   func,
+  options,
 ) {
-  workflowsSeen.push(func);
+  workflowsSeen.push([func, options]);
   return func;
 }
 
@@ -483,6 +541,7 @@ async function handleWorkflowRegistration(
   domain,
   version,
   func,
+  options,
 ) {
   const [workflowname, workflowobj] = await convertToWorkflow(
     registeredObjs,
@@ -491,8 +550,9 @@ async function handleWorkflowRegistration(
     domain,
     version,
     func,
+    options,
   );
-  const launchPlan = makeLaunchPlan(workflowobj);
+  const launchPlan = makeLaunchPlan(workflowobj, options);
   registeredObjs.workflows[workflowname] = workflowobj;
   registeredObjs.launchplans[workflowname] = launchPlan;
 }
@@ -582,10 +642,11 @@ if (import.meta.main) {
     );
   globalThis.pterodactylConfig.taskReferenceTransformer = (id) =>
     handleTaskReferenceSeen(registeredObjs, callsObj, id);
-  globalThis.pterodactylConfig.workflowTransformer = (f) =>
+  globalThis.pterodactylConfig.workflowTransformer = (f, options) =>
     handleWorkflowSeenInImport(
       workflowsSeen,
       f,
+      options,
     );
   const userWorkflowPath =
     pkgs.startsWith("https://") || pkgs.startsWith("http://")
@@ -596,7 +657,7 @@ if (import.meta.main) {
     endpoint,
     registeredObjs.taskReferences,
   );
-  await Promise.all(workflowsSeen.map((workflow) => {
+  await Promise.all(workflowsSeen.map(([workflow, options]) => {
     return handleWorkflowRegistration(
       registeredObjs,
       callsObj,
@@ -604,6 +665,7 @@ if (import.meta.main) {
       domain,
       version,
       workflow,
+      options,
     );
   }));
   // User workflow has been imported; upload
