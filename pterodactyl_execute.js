@@ -27,7 +27,9 @@ function collectInputs(inputdir, f, options) {
   const inputs = new Array(f.length);
   for (let i = 0; i < f.length; i++) {
     inputs[i] = collectInputFile(
-      options?.paramNames ? `${inputdir}/${options.paramNames[i]}` : `${inputdir}/input${i}`,
+      options?.paramNames
+        ? `${inputdir}/${options.paramNames[i]}`
+        : `${inputdir}/input${i}`,
     );
   }
 

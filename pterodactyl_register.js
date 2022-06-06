@@ -100,7 +100,7 @@ function checkParamNamesContent(options) {
   ) {
     throw "Provided paramNames array contain empty entries; paramNames entries cannot be empty";
   }
-  if ( 
+  if (
     options?.paramNames &&
     options.paramNames.length != (new Set(options.paramNames)).size
   ) {
