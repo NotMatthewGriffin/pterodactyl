@@ -203,10 +203,10 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return [
-      `${name}-${callsObj[name].length - 1}`,
-      getOutputNameFromTask(reference),
-    ];
+    return {
+      promiseNodeId: `${name}-${callsObj[name].length - 1}`,
+      outputName: getOutputNameFromTask(reference),
+    };
   };
   if (isAsync) {
     return async (...args) => captureObj(...args);
@@ -281,10 +281,10 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return [
-      `${name}-${callsObj[name].length - 1}`,
-      getOutputNameFromTask(reference),
-    ];
+    return {
+      promiseNodeId: `${name}-${callsObj[name].length - 1}`,
+      outputName: getOutputNameFromTask(reference),
+    };
   };
 }
 
@@ -295,7 +295,7 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
       : registeredObjs.taskReferences[nodeName]).id;
   const inputs = [];
   for (
-    let [varName, [promiseNodeId, outputName]] of call
+    let [varName, { promiseNodeId, outputName }] of call
   ) {
     inputs.push({
       var: varName,
@@ -336,17 +336,17 @@ async function convertToWorkflow(
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
-    inputs.push([
-      "start-node",
-      options?.paramNames ? options?.paramNames[i] : `input${i}`,
-    ]);
+    inputs.push({
+      promiseNodeId: "start-node",
+      outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
+    });
   }
 
   // make workflow function consistently async
   const consistentFunc = f instanceof AsyncFunction
     ? f
     : async (...inputs) => f(...inputs);
-  const [promiseNodeId, outputName] = await consistentFunc(
+  const { promiseNodeId, outputName } = await consistentFunc(
     ...inputs,
   );
 
