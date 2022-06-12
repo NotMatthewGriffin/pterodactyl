@@ -108,6 +108,12 @@ function checkParamNamesContent(options) {
   }
 }
 
+function checkOutputName(options) {
+  if ( options?.outputName && typeof options.outputName != "string" ){
+    throw "outputName option must be a string";
+  }
+}
+
 function convertToTask(
   pkg,
   image,
@@ -120,11 +126,14 @@ function convertToTask(
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
   checkParamNames(options, inputCount);
+  checkOutputName(options);
 
   const inputs = options?.paramNames
     ? generateAllNamedVariables(options.paramNames)
     : generateAllVariables("input", inputCount);
-  const output = generateAllVariables("output", 1);
+  const output = options?.outputName
+    ? generateAllNamedVariables([options.outputName])
+    : generateAllVariables("output", 1);
 
   return [taskName, {
     id: {
@@ -333,6 +342,7 @@ async function convertToWorkflow(
   const workflowName = getNameFromFunction(f);
   const inputCount = f.length;
   checkParamNames(options, inputCount);
+  checkOutputName(options)
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
@@ -370,6 +380,7 @@ async function convertToWorkflow(
     name: workflowName,
     version: version,
   };
+  const workflowOutputName = options?.outputName ?? "output0";
 
   return [workflowName, {
     id: workflowId,
@@ -383,7 +394,7 @@ async function convertToWorkflow(
               : generateAllVariables("input", inputCount),
           },
           outputs: {
-            variables: generateAllVariables("output", 1),
+            variables: generateAllNamedVariables([workflowOutputName])
           },
         },
         nodes: [
@@ -392,7 +403,7 @@ async function convertToWorkflow(
             id: "end-node",
             inputs: [
               {
-                var: "output0",
+                var: workflowOutputName,
                 binding: {
                   promise: {
                     node_id: promiseNodeId,
@@ -405,7 +416,7 @@ async function convertToWorkflow(
         ].concat(taskNodes),
         outputs: [
           {
-            var: "output0",
+            var: workflowOutputName,
             binding: {
               promise: {
                 node_id: promiseNodeId,
