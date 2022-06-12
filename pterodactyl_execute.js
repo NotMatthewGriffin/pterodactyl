@@ -36,9 +36,14 @@ function collectInputs(inputdir, f, options) {
   return inputs;
 }
 
-function writeOutput(outputdir, output) {
+function writeOutput(outputdir, output, options) {
   const jsonOutput = JSON.stringify(output);
-  Deno.writeTextFileSync(`${outputdir}/output0`, jsonOutput);
+  if (options.outputNames) {
+    const [outputName] = options.outputNames;
+    Deno.writeTextFileSync(`${outputdir}/${outputName}`, jsonOutput);
+  } else {
+    Deno.writeTextFileSync(`${outputdir}/output0`, jsonOutput);
+  }
 }
 
 function handleTaskSeenInImport(
@@ -60,7 +65,7 @@ async function handleTaskExecution(inputdir, outputdir, f, options) {
     ? f
     : async (...inputs) => f(...inputs);
   const output = await consistentFunc(...inputs);
-  writeOutput(outputdir, output);
+  writeOutput(outputdir, output, options);
 }
 
 if (import.meta.main) {

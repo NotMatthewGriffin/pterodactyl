@@ -124,7 +124,9 @@ function convertToTask(
   const inputs = options?.paramNames
     ? generateAllNamedVariables(options.paramNames)
     : generateAllVariables("input", inputCount);
-  const output = generateAllVariables("output", 1);
+  const output = options?.outputNames
+    ? generateAllNamedVariables(options.outputNames)
+    : generateAllVariables("output", 1);
 
   return [taskName, {
     id: {
@@ -370,6 +372,9 @@ async function convertToWorkflow(
     name: workflowName,
     version: version,
   };
+  const [workflowOutputName] = options?.outputNames
+    ? options.outputNames
+    : "output0";
 
   return [workflowName, {
     id: workflowId,
@@ -383,7 +388,9 @@ async function convertToWorkflow(
               : generateAllVariables("input", inputCount),
           },
           outputs: {
-            variables: generateAllVariables("output", 1),
+            variables: options?.outputNames
+              ? generateAllNamedVariables(options.outputNames)
+              : generateAllVariables("output", 1),
           },
         },
         nodes: [
@@ -392,7 +399,7 @@ async function convertToWorkflow(
             id: "end-node",
             inputs: [
               {
-                var: "output0",
+                var: workflowOutputName,
                 binding: {
                   promise: {
                     node_id: promiseNodeId,
@@ -405,7 +412,7 @@ async function convertToWorkflow(
         ].concat(taskNodes),
         outputs: [
           {
-            var: "output0",
+            var: workflowOutputName,
             binding: {
               promise: {
                 node_id: promiseNodeId,
@@ -570,6 +577,7 @@ async function uploadToFlyte(endpoint, type, objs) {
   let jsonResults = await Promise.all(registrationResults.map((result) => {
     return result.json();
   }));
+  console.log(JSON.stringify(jsonResults, null, 2));
   console.log(`Registered ${type}`);
 }
 
