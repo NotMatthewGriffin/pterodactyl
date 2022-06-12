@@ -38,7 +38,7 @@ function collectInputs(inputdir, f, options) {
 
 function writeOutput(outputdir, output, options) {
   const jsonOutput = JSON.stringify(output);
-  const outputName = options.outputName ?? "output0"
+  const outputName = options?.outputName ?? "output0"
   Deno.writeTextFileSync(`${outputdir}/${outputName}`, jsonOutput);
 }
 
