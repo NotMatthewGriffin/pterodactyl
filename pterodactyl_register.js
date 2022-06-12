@@ -108,6 +108,12 @@ function checkParamNamesContent(options) {
   }
 }
 
+function checkOutputName(options) {
+  if ( options.outputName && typeof options.outputName != "string" ){
+    throw "outputName option must be a string";
+  }
+}
+
 function convertToTask(
   pkg,
   image,
@@ -120,12 +126,13 @@ function convertToTask(
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
   checkParamNames(options, inputCount);
+  checkOutputName(options);
 
   const inputs = options?.paramNames
     ? generateAllNamedVariables(options.paramNames)
     : generateAllVariables("input", inputCount);
-  const output = options?.outputNames
-    ? generateAllNamedVariables(options.outputNames)
+  const output = options?.outputName
+    ? generateAllNamedVariables([options.outputName])
     : generateAllVariables("output", 1);
 
   return [taskName, {
@@ -335,6 +342,7 @@ async function convertToWorkflow(
   const workflowName = getNameFromFunction(f);
   const inputCount = f.length;
   checkParamNames(options, inputCount);
+  checkOutputName(options)
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
@@ -372,9 +380,7 @@ async function convertToWorkflow(
     name: workflowName,
     version: version,
   };
-  const [workflowOutputName] = options?.outputNames
-    ? options.outputNames
-    : "output0";
+  const workflowOutputName = options?.outputName ?? "output0";
 
   return [workflowName, {
     id: workflowId,
@@ -388,9 +394,7 @@ async function convertToWorkflow(
               : generateAllVariables("input", inputCount),
           },
           outputs: {
-            variables: options?.outputNames
-              ? generateAllNamedVariables(options.outputNames)
-              : generateAllVariables("output", 1),
+            variables: generateAllNamedVariables([workflowOutputName])
           },
         },
         nodes: [
@@ -577,7 +581,6 @@ async function uploadToFlyte(endpoint, type, objs) {
   let jsonResults = await Promise.all(registrationResults.map((result) => {
     return result.json();
   }));
-  console.log(JSON.stringify(jsonResults, null, 2));
   console.log(`Registered ${type}`);
 }
 

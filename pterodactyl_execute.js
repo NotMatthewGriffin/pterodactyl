@@ -38,12 +38,8 @@ function collectInputs(inputdir, f, options) {
 
 function writeOutput(outputdir, output, options) {
   const jsonOutput = JSON.stringify(output);
-  if (options.outputNames) {
-    const [outputName] = options.outputNames;
-    Deno.writeTextFileSync(`${outputdir}/${outputName}`, jsonOutput);
-  } else {
-    Deno.writeTextFileSync(`${outputdir}/output0`, jsonOutput);
-  }
+  const outputName = options.outputName ?? "output0"
+  Deno.writeTextFileSync(`${outputdir}/${outputName}`, jsonOutput);
 }
 
 function handleTaskSeenInImport(
