@@ -109,7 +109,7 @@ function checkParamNamesContent(options) {
 }
 
 function checkOutputName(options) {
-  if ( options.outputName && typeof options.outputName != "string" ){
+  if ( options?.outputName && typeof options.outputName != "string" ){
     throw "outputName option must be a string";
   }
 }
