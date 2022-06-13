@@ -198,6 +198,9 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
     let passedArguments = [];
     const reference = registeredObjs.tasks[name];
     const inputOrder = reference.spec.template.config?.inputOrder.split(",");
+    if (inputOrder.length == 1 && inputOrder[0] == ""){
+      inputOrder.pop();
+    }
     if (inputOrder.length != args.length) {
       throw `Wrong number of inputs recieved by task ${name}; takes ${inputOrder.length}, recieved ${args.length}`;
     }
