@@ -109,7 +109,7 @@ function checkParamNamesContent(options) {
 }
 
 function checkOutputName(options) {
-  if ( options?.outputName && typeof options.outputName != "string" ){
+  if (options?.outputName && typeof options.outputName != "string") {
     throw "outputName option must be a string";
   }
 }
@@ -198,7 +198,7 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
     let passedArguments = [];
     const reference = registeredObjs.tasks[name];
     const inputOrder = reference.spec.template.config?.inputOrder.split(",");
-    if (inputOrder.length == 1 && inputOrder[0] == ""){
+    if (inputOrder.length == 1 && inputOrder[0] == "") {
       inputOrder.pop();
     }
     if (inputOrder.length != args.length) {
@@ -345,7 +345,7 @@ async function convertToWorkflow(
   const workflowName = getNameFromFunction(f);
   const inputCount = f.length;
   checkParamNames(options, inputCount);
-  checkOutputName(options)
+  checkOutputName(options);
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
@@ -397,7 +397,7 @@ async function convertToWorkflow(
               : generateAllVariables("input", inputCount),
           },
           outputs: {
-            variables: generateAllNamedVariables([workflowOutputName])
+            variables: generateAllNamedVariables([workflowOutputName]),
           },
         },
         nodes: [
@@ -584,7 +584,26 @@ async function uploadToFlyte(endpoint, type, objs) {
   let jsonResults = await Promise.all(registrationResults.map((result) => {
     return result.json();
   }));
-  console.log(`Registered ${type}`);
+  let error = false;
+  for (let i = 0; i < jsonResults.length; i++) {
+    let objId = JSON.stringify(objs[i].id);
+    if (Object.keys(jsonResults[i]).length == 0) {
+      console.log(`Registered ${objId}`);
+    } else if (
+      jsonResults[i].code == 6 && jsonResults[i].error &&
+      jsonResults[i].error.includes("already exists")
+    ) {
+      console.log(`${objId} already registered`);
+    } else {
+      console.error(
+        `Error Registering ${objId}\n\tError: ${jsonResults[i].error}`,
+      );
+      error |= true;
+    }
+  }
+  if (error) {
+    throw `Error while registering ${type}`;
+  }
 }
 
 async function uploadTasks(endpoint, objs) {
