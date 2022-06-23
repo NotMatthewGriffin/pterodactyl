@@ -205,11 +205,15 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       throw `Wrong number of inputs recieved by task ${name}; takes ${inputOrder.length}, recieved ${args.length}`;
     }
     for (let i = 0; i < inputOrder.length; i++) {
-      let [name, arg] = [inputOrder[i], args[i]];
+      let [paramName, arg] = [inputOrder[i], args[i]];
       if (arg instanceof Promise) {
         throw "Tasks cannot take Promises as input";
       }
-      passedArguments.push([name, arg]);
+      const { promiseNodeId, outputName } = arg;
+      if (!promiseNodeId || !outputName) {
+        throw `Argument for parameter ${paramName} of task ${name} is not a task output or workflow input`;
+      }
+      passedArguments.push([paramName, arg]);
     }
     if (!callsObj[name]) {
       callsObj[name] = [];
@@ -256,11 +260,15 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         throw `Wrong number of inputs recieved by task reference; takes ${inputOrder.length}, recieved ${args.length}`;
       }
       for (let i = 0; i < inputOrder.length; i++) {
-        let [name, arg] = [inputOrder[i], args[i]];
+        let [paramName, arg] = [inputOrder[i], args[i]];
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-        passedArguments.push([name, arg]);
+        const { promiseNodeId, outputName } = arg;
+        if (!promiseNodeId || !outputName) {
+          throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
+        }
+        passedArguments.push([paramName, arg]);
       }
     } else {
       const expected_inputs = reference.spec.template.interface.inputs.variables
@@ -281,12 +289,16 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
           : "no properties";
         throw `Incorrect number of inputs to task reference without an inputOrder config; expected object with ${expectedError}`;
       }
-      for (let name of expected_inputs) {
-        let arg = args[0][name];
+      for (let paramName of expected_inputs) {
+        let arg = args[0][paramName];
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-        passedArguments.push([name, arg]);
+        const { promiseNodeId, outputName } = arg;
+        if (!promiseNodeId || !outputName) {
+          throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
+        }
+        passedArguments.push([paramName, arg]);
       }
     }
     if (!callsObj[name]) {
@@ -362,6 +374,9 @@ async function convertToWorkflow(
   const { promiseNodeId, outputName } = await consistentFunc(
     ...inputs,
   );
+  if (!promiseNodeId || !outputName) {
+    throw `Workflow ${workflowName} output is not task output or workflow input`;
+  }
 
   const taskNodes = [];
   for (let [nodeName, calls] of Object.entries(callsObj)) {
