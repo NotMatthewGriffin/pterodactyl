@@ -211,7 +211,7 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       }
       const { promiseNodeId, outputName } = arg;
       if (!promiseNodeId || !outputName) {
-        throw `Argument to param ${paramName} of task ${name} is not a task output or workflow input`;
+        throw `Argument for parameter ${paramName} of task ${name} is not a task output or workflow input`;
       }
       passedArguments.push([paramName, arg]);
     }
@@ -266,7 +266,7 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         }
         const { promiseNodeId, outputName } = arg;
         if (!promiseNodeId || !outputName) {
-          throw `Argument to param ${paramName} of task reference ${name} is not a task output or workflow input`;
+          throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
         }
         passedArguments.push([paramName, arg]);
       }
@@ -296,7 +296,7 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         }
         const { promiseNodeId, outputName } = arg;
         if (!promiseNodeId || !outputName) {
-          throw `Argument to param ${paramName} of task reference ${name} is not a task output or workflow input`;
+          throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
         }
         passedArguments.push([paramName, arg]);
       }
