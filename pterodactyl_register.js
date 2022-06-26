@@ -544,7 +544,7 @@ function handleWorkflowSeenInImport(
 async function populateTaskReferenceInformation(endpoint, taskReference) {
   const { project, domain, name, version } = taskReference.id;
   const info = await fetch(
-    `http://${endpoint}/api/v1/tasks/${project}/${domain}/${name}/${version}`,
+    `${endpoint}/api/v1/tasks/${project}/${domain}/${name}/${version}`,
     {},
   ).then((r) => r.json());
   if (info.error) {
@@ -588,7 +588,7 @@ async function handleWorkflowRegistration(
 
 async function uploadToFlyte(endpoint, type, objs) {
   let registrationResults = await Promise.all(objs.map((obj) => {
-    return fetch(`http://${endpoint}/api/v1/${type}`, {
+    return fetch(`${endpoint}/api/v1/${type}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -633,6 +633,10 @@ async function uploadLaunchPlans(endpoint, objs) {
   return await uploadToFlyte(endpoint, "launch_plans", objs);
 }
 
+function addProtocolToEndpoint(endpoint){
+  return endpoint.startsWith("https://") || endpoint.startsWith("http://") ? endpoint : `http://${endpoint}`;
+}
+
 if (import.meta.main) {
   const { pkgs, image, endpoint, project, domain, version } = parse(Deno.args);
   if (!pkgs) {
@@ -665,6 +669,7 @@ if (import.meta.main) {
     );
     Deno.exit(1);
   }
+  const protocolEndpoint = addProtocolToEndpoint(endpoint);
 
   // registered Objs are stored for use in workflow
   const registeredObjs = {
@@ -702,7 +707,7 @@ if (import.meta.main) {
       : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
   await populateAllTaskReferenceInformation(
-    endpoint,
+    protocolEndpoint,
     registeredObjs.taskReferences,
   );
   await Promise.all(workflowsSeen.map(([workflow, options]) => {
@@ -717,7 +722,7 @@ if (import.meta.main) {
     );
   }));
   // User workflow has been imported; upload
-  await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
-  await uploadWorkflows(endpoint, Object.values(registeredObjs.workflows));
-  await uploadLaunchPlans(endpoint, Object.values(registeredObjs.launchplans));
+  await uploadTasks(protocolEndpoint, Object.values(registeredObjs.tasks));
+  await uploadWorkflows(protocolEndpoint, Object.values(registeredObjs.workflows));
+  await uploadLaunchPlans(protocolEndpoint, Object.values(registeredObjs.launchplans));
 }
