@@ -193,6 +193,16 @@ function getOutputNameFromTask(task) {
   return outputNames[0];
 }
 
+function getOutputNameFromLaunchPlan(launchPlan) {
+  const outputNames = Object.keys(
+    launchPlan.closure.expected_outputs.variables,
+  );
+  if (outputNames.length != 1) {
+    throw "Unexpected number of outputs";
+  }
+  return outputNames[0];
+}
+
 function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
   let captureObj = (...args) => {
     let passedArguments = [];
@@ -312,11 +322,50 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
   };
 }
 
+function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
+  return (...args) => {
+    let passedArguments = [];
+    const reference = registeredObjs.launchPlanReferences[name];
+    const expected_inputs = reference.closure.expected_inputs.parameters
+      ? Object.keys(reference.closure.expected_inputs.parameters)
+      : [];
+    if (
+      (expected_inputs.length == 0 &&
+        !(args.length == 0 ||
+          args.length == 1 && Object.keys(args[0]).length == 0)) ||
+      (expected_inputs.length > 0 &&
+        (args.length != 1 ||
+          !sameValues(Object.keys(args[0]), expected_inputs)))
+    ) {
+      const expectedError = expected_inputs.length
+        ? `only properties: ${expected_inputs}`
+        : "no properties";
+      throw `Incorrect number of inputs to launch plan reference; expected object with ${expectedError}`;
+    }
+    for (let paramName of expected_inputs) {
+      let arg = args[0][paramName];
+      if (arg instanceof Promise) {
+        throw "Launch Plans cannot take Promises as input";
+      }
+      const { promiseNodeId, outputName } = arg;
+      if (!promiseNodeId || !outputName) {
+        throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
+      }
+      passedArguments.push([paramName, arg]);
+    }
+    if (!callsObj[name]) {
+      callsObj[name] = [];
+    }
+    callsObj[name].push(passedArguments);
+    return {
+      promiseNodeId: `${name}-${callsObj[name].length - 1}`,
+      outputName: getOutputNameFromLaunchPlan(reference),
+    };
+  };
+}
+
 function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
-  const taskId =
-    (nodeName in registeredObjs.tasks
-      ? registeredObjs.tasks[nodeName]
-      : registeredObjs.taskReferences[nodeName]).id;
+  const isLaunchPlan = nodeName in registeredObjs.launchPlanReferences;
   const inputs = [];
   for (
     let [varName, { promiseNodeId, outputName }] of call
@@ -332,16 +381,29 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
     });
   }
 
+  const target = isLaunchPlan
+    ? {
+      workflow_node: {
+        launchplan_ref: registeredObjs.launchPlanReferences[nodeName].id,
+      },
+    }
+    : {
+      task_node: {
+        reference_id:
+          (nodeName in registeredObjs.tasks
+            ? registeredObjs.tasks[nodeName]
+            : registeredObjs.taskReferences[nodeName]).id,
+      },
+    };
+
   return {
     id: `${nodeName}-${callNumber}`,
     metadata: {
       name: nodeName,
       retries: {},
     },
-    task_node: {
-      reference_id: taskId,
-    },
     inputs: inputs,
+    ...target,
   };
 }
 
@@ -532,6 +594,18 @@ function handleTaskReferenceSeen(
   return taskReferenceInputCaptureObj(registeredObjs, callsObj, refName);
 }
 
+function handleLaunchPlanReferenceSeen(
+  registeredObjs,
+  callsObj,
+  { project, domain, name, version },
+) {
+  const refName = [project, domain, name, version].join("-");
+  registeredObjs.launchPlanReferences[refName] = {
+    id: { resource_type: "LAUNCH_PLAN", project, domain, name, version },
+  };
+  return launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, refName);
+}
+
 function handleWorkflowSeenInImport(
   workflowsSeen,
   func,
@@ -555,10 +629,41 @@ async function populateTaskReferenceInformation(endpoint, taskReference) {
   taskReference.spec = { template: info?.closure?.compiled_task?.template };
 }
 
+async function populateLaunchPlanReferenceInformation(
+  endpoint,
+  launchPlanReference,
+) {
+  const { project, domain, name, version } = launchPlanReference.id;
+  const info = await fetch(
+    `${endpoint}/api/v1/launch_plans/${project}/${domain}/${name}/${version}`,
+    {},
+  ).then((r) => r.json());
+  if (info.error) {
+    console.error(
+      "Error occured while retrieving launch plan reference information",
+    );
+    console.error(JSON.stringify(info, null, 2));
+    throw "Missing Launch Plan Reference";
+  }
+  launchPlanReference.spec = info?.spec;
+  launchPlanReference.closure = info?.closure;
+}
+
 async function populateAllTaskReferenceInformation(endpoint, taskReferences) {
   await Promise.all(
     Object.values(taskReferences).map((reference) =>
       populateTaskReferenceInformation(endpoint, reference)
+    ),
+  );
+}
+
+async function populateAllLaunchPlanReferenceInformation(
+  endpoint,
+  launchPlanReferences,
+) {
+  await Promise.all(
+    Object.values(launchPlanReferences).map((reference) =>
+      populateLaunchPlanReferenceInformation(endpoint, reference)
     ),
   );
 }
@@ -633,8 +738,10 @@ async function uploadLaunchPlans(endpoint, objs) {
   return await uploadToFlyte(endpoint, "launch_plans", objs);
 }
 
-function addProtocolToEndpoint(endpoint){
-  return endpoint.startsWith("https://") || endpoint.startsWith("http://") ? endpoint : `http://${endpoint}`;
+function addProtocolToEndpoint(endpoint) {
+  return endpoint.startsWith("https://") || endpoint.startsWith("http://")
+    ? endpoint
+    : `http://${endpoint}`;
 }
 
 if (import.meta.main) {
@@ -677,6 +784,7 @@ if (import.meta.main) {
     workflows: {},
     launchplans: {},
     taskReferences: {},
+    launchPlanReferences: {},
   };
   // calls made to each task are stored here
   const callsObj = {};
@@ -695,6 +803,8 @@ if (import.meta.main) {
     );
   globalThis.pterodactylConfig.taskReferenceTransformer = (id) =>
     handleTaskReferenceSeen(registeredObjs, callsObj, id);
+  globalThis.pterodactylConfig.launchPlanReferenceTransformer = (id) =>
+    handleLaunchPlanReferenceSeen(registeredObjs, callsObj, id);
   globalThis.pterodactylConfig.workflowTransformer = (f, options) =>
     handleWorkflowSeenInImport(
       workflowsSeen,
@@ -710,6 +820,10 @@ if (import.meta.main) {
     protocolEndpoint,
     registeredObjs.taskReferences,
   );
+  await populateAllLaunchPlanReferenceInformation(
+    protocolEndpoint,
+    registeredObjs.launchPlanReferences,
+  );
   await Promise.all(workflowsSeen.map(([workflow, options]) => {
     return handleWorkflowRegistration(
       registeredObjs,
@@ -723,6 +837,12 @@ if (import.meta.main) {
   }));
   // User workflow has been imported; upload
   await uploadTasks(protocolEndpoint, Object.values(registeredObjs.tasks));
-  await uploadWorkflows(protocolEndpoint, Object.values(registeredObjs.workflows));
-  await uploadLaunchPlans(protocolEndpoint, Object.values(registeredObjs.launchplans));
+  await uploadWorkflows(
+    protocolEndpoint,
+    Object.values(registeredObjs.workflows),
+  );
+  await uploadLaunchPlans(
+    protocolEndpoint,
+    Object.values(registeredObjs.launchplans),
+  );
 }
