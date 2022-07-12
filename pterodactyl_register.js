@@ -149,7 +149,7 @@ function convertToTask(
         metadata: {
           runtime: {
             type: "OTHER",
-            version: "0.0.3",
+            version: "0.0.4",
             flavor: "pterodactyl",
           },
           retries: {},
@@ -427,6 +427,11 @@ async function convertToWorkflow(
       promiseNodeId: "start-node",
       outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
     });
+  }
+
+  // ensure no properties are set on the callsObj
+  for (let prop of Object.keys(callsObj)) {
+    delete callsObj[prop];
   }
 
   // make workflow function consistently async
