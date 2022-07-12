@@ -429,6 +429,11 @@ async function convertToWorkflow(
     });
   }
 
+  // ensure no properties are set on the callsObj
+  for (let prop of Object.keys(callsObj)) {
+    delete callsObj[prop];
+  }
+
   // make workflow function consistently async
   const consistentFunc = f instanceof AsyncFunction
     ? f
