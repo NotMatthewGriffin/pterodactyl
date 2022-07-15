@@ -79,7 +79,7 @@ export function launchPlanReference({ project, domain, name, version }) {
  * pterodactyl_register script. If a script is executed normally this will
  * return the provided function back to the caller.
  * @param {function} func - Function to annotate as a workflow.
- * @param {object} options - Options to change the behavior of the registered workflow
+ * @param {Object} options - Options to change the behavior of the registered workflow
  * @returns {function} A workflow annotated function
  */
 export function workflow(func, options = {}) {
