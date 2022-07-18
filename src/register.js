@@ -41,7 +41,7 @@ function getExecutionScript() {
     return "pterodactyl_execute.js";
   }
   return import.meta.url.split("/").slice(0, -1).join("/") +
-    "/pterodactyl_execute.js";
+    "../pterodactyl_execute.js";
 }
 
 function generateContainer(pkg, image, taskName) {
