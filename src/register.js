@@ -742,6 +742,16 @@ async function uploadLaunchPlans(endpoint, objs) {
   return await uploadToFlyte(endpoint, "launch_plans", objs);
 }
 
+/**
+ * Register a javascript file with functions annotated as tasks or workflows
+ * to a running flyte cluster so that it can be executed.
+ * @param {string} pkgs - File system path or url to script to register.
+ * @param {string} image - Container image to run registered tasks with.
+ * @param {string} endpoint - URL or ip where the flyte api is hosted.
+ * @param {string} project - Project in which to register.
+ * @param {string} domain - Domain in which to register.
+ * @param {string} version - Version to register as.
+ */
 export async function registerScriptWithOptions(
   pkgs,
   image,
