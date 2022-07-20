@@ -1,4 +1,4 @@
-import { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
+import { parse } from "./src/deps.js";
 import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
@@ -38,7 +38,7 @@ function collectInputs(inputdir, f, options) {
 
 function writeOutput(outputdir, output, options) {
   const jsonOutput = JSON.stringify(output);
-  const outputName = options?.outputName ?? "output0"
+  const outputName = options?.outputName ?? "output0";
   Deno.writeTextFileSync(`${outputdir}/${outputName}`, jsonOutput);
 }
 
