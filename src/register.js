@@ -2,6 +2,13 @@ import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
 
+class PromiseBinding {
+  constructor ({promiseNodeId, outputName}) {
+    this.promiseNodeId = promiseNodeId;
+    this.outputName = outputName;
+  }
+}
+
 function getNameFromFunction(f) {
   if (!f.name) {
     throw "Functions must be named";
@@ -218,8 +225,7 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       if (arg instanceof Promise) {
         throw "Tasks cannot take Promises as input";
       }
-      const { promiseNodeId, outputName } = arg;
-      if (!promiseNodeId || !outputName) {
+      if (!(arg instanceof PromiseBinding)) {
         throw `Argument for parameter ${paramName} of task ${name} is not a task output or workflow input`;
       }
       passedArguments.push([paramName, arg]);
@@ -228,10 +234,10 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return {
+    return new PromiseBinding({
       promiseNodeId: `${name}-${callsObj[name].length - 1}`,
       outputName: getOutputNameFromTask(reference),
-    };
+    });
   };
   if (isAsync) {
     return async (...args) => captureObj(...args);
@@ -273,10 +279,9 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-        const { promiseNodeId, outputName } = arg;
-        if (!promiseNodeId || !outputName) {
+	if (!(arg instanceof PromiseBinding)) {
           throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
-        }
+	}
         passedArguments.push([paramName, arg]);
       }
     } else {
@@ -303,10 +308,10 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-        const { promiseNodeId, outputName } = arg;
-        if (!promiseNodeId || !outputName) {
+	if (!(arg instanceof PromiseBinding)) {
           throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
-        }
+	}
+        
         passedArguments.push([paramName, arg]);
       }
     }
@@ -314,10 +319,10 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return {
+    return new PromiseBinding({
       promiseNodeId: `${name}-${callsObj[name].length - 1}`,
       outputName: getOutputNameFromTask(reference),
-    };
+    });
   };
 }
 
@@ -346,8 +351,7 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       if (arg instanceof Promise) {
         throw "Launch Plans cannot take Promises as input";
       }
-      const { promiseNodeId, outputName } = arg;
-      if (!promiseNodeId || !outputName) {
+      if (!(arg instanceof PromiseBinding)) {
         throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
       }
       passedArguments.push([paramName, arg]);
@@ -356,10 +360,10 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return {
+    return new PromiseBinding({
       promiseNodeId: `${name}-${callsObj[name].length - 1}`,
       outputName: getOutputNameFromLaunchPlan(reference),
-    };
+    });
   };
 }
 
@@ -422,10 +426,10 @@ async function convertToWorkflow(
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
-    inputs.push({
+    inputs.push(new PromiseBinding({
       promiseNodeId: "start-node",
       outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
-    });
+    }));
   }
 
   // ensure no properties are set on the callsObj
