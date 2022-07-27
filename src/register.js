@@ -441,12 +441,13 @@ async function convertToWorkflow(
   const consistentFunc = f instanceof AsyncFunction
     ? f
     : async (...inputs) => f(...inputs);
-  const { promiseNodeId, outputName } = await consistentFunc(
+  const result = await consistentFunc(
     ...inputs,
   );
-  if (!promiseNodeId || !outputName) {
+  if (!(result instanceof PromiseBinding)) {
     throw `Workflow ${workflowName} output is not task output or workflow input`;
   }
+  const { promiseNodeId, outputName } = result;
 
   const taskNodes = [];
   for (let [nodeName, calls] of Object.entries(callsObj)) {
