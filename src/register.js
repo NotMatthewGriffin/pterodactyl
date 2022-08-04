@@ -155,7 +155,7 @@ function convertToTask(
         metadata: {
           runtime: {
             type: "OTHER",
-            version: "0.0.4",
+            version: "0.0.6",
             flavor: "pterodactyl",
           },
           retries: {},
@@ -811,8 +811,8 @@ export async function registerScriptWithOptions(
     endpoint,
     registeredObjs.launchPlanReferences,
   );
-  await Promise.all(workflowsSeen.map(([workflow, options]) => {
-    return handleWorkflowRegistration(
+  for (let [workflow, options] of workflowsSeen) {
+    await handleWorkflowRegistration(
       registeredObjs,
       callsObj,
       project,
@@ -821,7 +821,7 @@ export async function registerScriptWithOptions(
       workflow,
       options,
     );
-  }));
+  }
   // User workflow has been imported; upload
   await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
   await uploadWorkflows(
