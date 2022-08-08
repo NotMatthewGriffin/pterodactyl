@@ -99,3 +99,15 @@ the flytesnacks project and development domain to find the workflow
 flyte console interface will say that the inputs are all of type string but they
 will be fed to `JSON.parse` and the result of that sent as the argument to your
 workflow task functions. For this example try 2 for `input0` and 2 for `input1`.
+
+## Testing pterodactyl
+
+### Prerequisites
+In order to test pterodactyl's implementation you will need the following software: `kind`, `helm`, `deno`.
+
+With these software installed you will also need to add the flyte helm repo: `helm repo add flyteorg https://flyteorg.github.io/flyte`.
+After adding the helm repo you'll need to run `helm repo update`.
+
+### Test command
+
+With the prerequisites out of the way you can test pterodactyl with the following: `deno test --allow-run`.
