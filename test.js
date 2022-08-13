@@ -79,6 +79,47 @@ Deno.test("pterodactyl tests", async (t) => {
     );
   });
 
+  // Register workflows that use references (launchPlan or task)
+  await t.step("Register workflows with reference tasks", async (t) => {
+    await expectRegisterSuccess(
+      "./test-cases/references/sumWorkflow.js",
+      "denoland/deno:distroless-1.24.1",
+      [
+        'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"sum","version":"v1"}',
+        'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"sum","version":"v1"}',
+        'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"sum","version":"v1"}',
+        "",
+      ].join("\n"),
+      "Failed to register referenced workflow",
+    );
+
+    await t.step("Register workflow using launch plan reference", async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/references/launchPlanWorkflow.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesLaunchPlan","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesLaunchPlan","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with launch plan reference",
+      );
+    });
+
+    await t.step("Register workflow using task reference", async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/references/taskReferenceWorkflow.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesTaskReference","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesTaskReference","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with task reference",
+      );
+    });
+  });
+
   // Fail to register with constant inputs
   await t.step("Fail to register workflow with constant input", async (t) => {
     await expectRegisterFailure(
