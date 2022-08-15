@@ -3,9 +3,20 @@ import * as _ from "./pterodactyl.js";
 const AsyncFunction = (async () => {}).constructor;
 
 class PromiseBinding {
-  constructor ({promiseNodeId, outputName}) {
+  constructor({ promiseNodeId, outputName }) {
     this.promiseNodeId = promiseNodeId;
     this.outputName = outputName;
+  }
+
+  bindingObj() {
+    return {
+      binding: {
+        promise: {
+          node_id: this.promiseNodeId,
+          var: this.outputName,
+        },
+      },
+    };
   }
 }
 
@@ -279,9 +290,9 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-	if (!(arg instanceof PromiseBinding)) {
+        if (!(arg instanceof PromiseBinding)) {
           throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
-	}
+        }
         passedArguments.push([paramName, arg]);
       }
     } else {
@@ -308,10 +319,10 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-	if (!(arg instanceof PromiseBinding)) {
+        if (!(arg instanceof PromiseBinding)) {
           throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
-	}
-        
+        }
+
         passedArguments.push([paramName, arg]);
       }
     }
@@ -371,16 +382,11 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
   const isLaunchPlan = nodeName in registeredObjs.launchPlanReferences;
   const inputs = [];
   for (
-    let [varName, { promiseNodeId, outputName }] of call
+    let [varName, binding] of call
   ) {
     inputs.push({
       var: varName,
-      binding: {
-        promise: {
-          node_id: promiseNodeId,
-          var: outputName,
-        },
-      },
+      ...binding.bindingObj(),
     });
   }
 
@@ -426,10 +432,12 @@ async function convertToWorkflow(
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
-    inputs.push(new PromiseBinding({
-      promiseNodeId: "start-node",
-      outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
-    }));
+    inputs.push(
+      new PromiseBinding({
+        promiseNodeId: "start-node",
+        outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
+      }),
+    );
   }
 
   // ensure no properties are set on the callsObj
@@ -447,7 +455,6 @@ async function convertToWorkflow(
   if (!(result instanceof PromiseBinding)) {
     throw `Workflow ${workflowName} output is not task output or workflow input`;
   }
-  const { promiseNodeId, outputName } = result;
 
   const taskNodes = [];
   for (let [nodeName, calls] of Object.entries(callsObj)) {
@@ -493,12 +500,7 @@ async function convertToWorkflow(
             inputs: [
               {
                 var: workflowOutputName,
-                binding: {
-                  promise: {
-                    node_id: promiseNodeId,
-                    var: outputName,
-                  },
-                },
+                ...result.bindingObj(),
               },
             ],
           },
@@ -506,12 +508,7 @@ async function convertToWorkflow(
         outputs: [
           {
             var: workflowOutputName,
-            binding: {
-              promise: {
-                node_id: promiseNodeId,
-                var: outputName,
-              },
-            },
+            ...result.bindingObj(),
           },
         ],
       },
