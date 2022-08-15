@@ -2,6 +2,24 @@ import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
 
+class PromiseBinding {
+  constructor({ promiseNodeId, outputName }) {
+    this.promiseNodeId = promiseNodeId;
+    this.outputName = outputName;
+  }
+
+  bindingObj() {
+    return {
+      binding: {
+        promise: {
+          node_id: this.promiseNodeId,
+          var: this.outputName,
+        },
+      },
+    };
+  }
+}
+
 function getNameFromFunction(f) {
   if (!f.name) {
     throw "Functions must be named";
@@ -218,8 +236,7 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       if (arg instanceof Promise) {
         throw "Tasks cannot take Promises as input";
       }
-      const { promiseNodeId, outputName } = arg;
-      if (!promiseNodeId || !outputName) {
+      if (!(arg instanceof PromiseBinding)) {
         throw `Argument for parameter ${paramName} of task ${name} is not a task output or workflow input`;
       }
       passedArguments.push([paramName, arg]);
@@ -228,10 +245,10 @@ function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return {
+    return new PromiseBinding({
       promiseNodeId: `${name}-${callsObj[name].length - 1}`,
       outputName: getOutputNameFromTask(reference),
-    };
+    });
   };
   if (isAsync) {
     return async (...args) => captureObj(...args);
@@ -273,8 +290,7 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-        const { promiseNodeId, outputName } = arg;
-        if (!promiseNodeId || !outputName) {
+        if (!(arg instanceof PromiseBinding)) {
           throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
         }
         passedArguments.push([paramName, arg]);
@@ -303,10 +319,10 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         if (arg instanceof Promise) {
           throw "Tasks cannot take Promises as input";
         }
-        const { promiseNodeId, outputName } = arg;
-        if (!promiseNodeId || !outputName) {
+        if (!(arg instanceof PromiseBinding)) {
           throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
         }
+
         passedArguments.push([paramName, arg]);
       }
     }
@@ -314,10 +330,10 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return {
+    return new PromiseBinding({
       promiseNodeId: `${name}-${callsObj[name].length - 1}`,
       outputName: getOutputNameFromTask(reference),
-    };
+    });
   };
 }
 
@@ -346,8 +362,7 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       if (arg instanceof Promise) {
         throw "Launch Plans cannot take Promises as input";
       }
-      const { promiseNodeId, outputName } = arg;
-      if (!promiseNodeId || !outputName) {
+      if (!(arg instanceof PromiseBinding)) {
         throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
       }
       passedArguments.push([paramName, arg]);
@@ -356,10 +371,10 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       callsObj[name] = [];
     }
     callsObj[name].push(passedArguments);
-    return {
+    return new PromiseBinding({
       promiseNodeId: `${name}-${callsObj[name].length - 1}`,
       outputName: getOutputNameFromLaunchPlan(reference),
-    };
+    });
   };
 }
 
@@ -367,16 +382,11 @@ function callToTaskNode(registeredObjs, nodeName, callNumber, call) {
   const isLaunchPlan = nodeName in registeredObjs.launchPlanReferences;
   const inputs = [];
   for (
-    let [varName, { promiseNodeId, outputName }] of call
+    let [varName, binding] of call
   ) {
     inputs.push({
       var: varName,
-      binding: {
-        promise: {
-          node_id: promiseNodeId,
-          var: outputName,
-        },
-      },
+      ...binding.bindingObj(),
     });
   }
 
@@ -422,10 +432,12 @@ async function convertToWorkflow(
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
-    inputs.push({
-      promiseNodeId: "start-node",
-      outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
-    });
+    inputs.push(
+      new PromiseBinding({
+        promiseNodeId: "start-node",
+        outputName: options?.paramNames ? options?.paramNames[i] : `input${i}`,
+      }),
+    );
   }
 
   // ensure no properties are set on the callsObj
@@ -437,10 +449,10 @@ async function convertToWorkflow(
   const consistentFunc = f instanceof AsyncFunction
     ? f
     : async (...inputs) => f(...inputs);
-  const { promiseNodeId, outputName } = await consistentFunc(
+  const result = await consistentFunc(
     ...inputs,
   );
-  if (!promiseNodeId || !outputName) {
+  if (!(result instanceof PromiseBinding)) {
     throw `Workflow ${workflowName} output is not task output or workflow input`;
   }
 
@@ -488,12 +500,7 @@ async function convertToWorkflow(
             inputs: [
               {
                 var: workflowOutputName,
-                binding: {
-                  promise: {
-                    node_id: promiseNodeId,
-                    var: outputName,
-                  },
-                },
+                ...result.bindingObj(),
               },
             ],
           },
@@ -501,12 +508,7 @@ async function convertToWorkflow(
         outputs: [
           {
             var: workflowOutputName,
-            binding: {
-              promise: {
-                node_id: promiseNodeId,
-                var: outputName,
-              },
-            },
+            ...result.bindingObj(),
           },
         ],
       },
