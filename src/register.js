@@ -2,6 +2,21 @@ import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
 
+export function isSerializable(value) {
+  const isPlainObj = Object.getPrototypeOf(value) == Object.getPrototypeOf({});
+  if (isPlainObj) {
+    return Object.values(value).every(isSerializable);
+  }
+
+  const isArray = Array.isArray(value);
+  if (isArray) {
+    return value.every(isSerializable);
+  }
+
+  return typeof value === "string" ||
+    typeof value === "boolean" || typeof value === "number";
+}
+
 class PromiseBinding {
   constructor({ promiseNodeId, outputName }) {
     this.promiseNodeId = promiseNodeId;

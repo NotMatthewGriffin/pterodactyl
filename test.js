@@ -6,6 +6,10 @@ import {
   assertEquals,
 } from "https://deno.land/std@0.151.0/testing/asserts.ts";
 
+import {
+  isSerializable
+} from "./src/register.js";
+
 const basicRegistrationCmd = [
   "deno",
   "run",
@@ -21,6 +25,48 @@ const basicRegistrationCmd = [
   "--version",
   "v1",
 ];
+
+Deno.test("isSerializable test", async (t) => {
+  class TestClass{
+    constructor(x) {
+      this.x = x;
+    }
+  }
+
+  await t.step("String is serializable", async (t) => {
+    assert(isSerializable("hello world"), "String is not serializable");
+  });
+
+  await t.step("Boolean is serializable", async (t) => {
+    assert(isSerializable(true), "Boolean is not serializable");
+    assert(isSerializable(false), "Boolean is not serializable");
+  });
+
+  await t.step("Number is serializable", async (t) => {
+    assert(isSerializable(false), "Number is not serializable");
+  });
+
+  await t.step("Array is serializable", async (t) => {
+    assert(isSerializable([1, "hi", false]), "Array is not serializable");
+  });
+
+  await t.step("Plain object is serializable", async (t) => {
+    assert(isSerializable({x: 10}), "Plain object not serializable");
+  });
+
+  await t.step("Class is not serializable", async (t) => {
+    assert(!isSerializable(new TestClass(10)), "class is serializable");
+  });
+
+  await t.step("Class nested in array is not serializable", async (t) => {
+    assert(!isSerializable([new TestClass(10)]), "class is serializable");
+  });
+
+
+  await t.step("Class nested in object is not serializable", async (t) => {
+    assert(!isSerializable({x:new TestClass(10)}), "class is serializable");
+  });
+});
 
 Deno.test("pterodactyl tests", async (t) => {
   // Start cluster for testing
