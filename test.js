@@ -164,6 +164,19 @@ Deno.test("pterodactyl tests", async (t) => {
         "Failed to register workflow with task reference",
       );
     });
+
+    await t.step("Register workflow using task reference with named arguments", async (t) => {
+      await expectRegisterSuccess(
+	"./test-cases/references/namedArgumentTaskReferenceWorkflow.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesTaskReferenceNamedArgument","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesTaskReferenceNamedArgument","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with task reference",
+      );
+    });
   });
 
   // Fail to register with constant inputs
