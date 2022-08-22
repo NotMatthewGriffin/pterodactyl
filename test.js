@@ -139,6 +139,18 @@ Deno.test("pterodactyl tests", async (t) => {
       "Failed to register referenced workflow",
     );
 
+    await expectRegisterSuccess(
+      "./test-cases/references/zeroArgumentTask.js",
+      "denoland/deno:distroless-1.24.1",
+      [
+        'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"noArgs","version":"v1"}',
+        'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"noArgs","version":"v1"}',
+        'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"noArgs","version":"v1"}',
+        "",
+      ].join("\n"),
+      "Failed to register referenced workflow",
+    );
+
     await t.step("Register workflow using launch plan reference", async (t) => {
       await expectRegisterSuccess(
         "./test-cases/references/launchPlanWorkflow.js",
@@ -159,6 +171,19 @@ Deno.test("pterodactyl tests", async (t) => {
         [
           'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesTaskReference","version":"v1"}',
           'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesTaskReference","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with task reference",
+      );
+    });
+
+    await t.step("Register workflow using zero argument task reference", async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/references/referencesZeroArgumentTask.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesNoArgsTaskReference","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesNoArgsTaskReference","version":"v1"}',
           "",
         ].join("\n"),
         "Failed to register workflow with task reference",
