@@ -255,26 +255,8 @@ function getOutputNameFromLaunchPlan(launchPlan) {
 
 function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
   let captureObj = (...args) => {
-    let passedArguments = [];
     const reference = registeredObjs.tasks[name];
-    const inputOrder = reference.spec.template.config?.inputOrder.split(",");
-    if (inputOrder.length == 1 && inputOrder[0] == "") {
-      inputOrder.pop();
-    }
-    if (inputOrder.length != args.length) {
-      throw `Wrong number of inputs recieved by task ${name}; takes ${inputOrder.length}, recieved ${args.length}`;
-    }
-    for (let i = 0; i < inputOrder.length; i++) {
-      let [paramName, arg] = [inputOrder[i], args[i]];
-      if (arg instanceof Promise) {
-        throw "Tasks cannot take Promises as input";
-      }
-      // extend with primitivebinding
-      if (!(arg instanceof PromiseBinding)) {
-        throw `Argument for parameter ${paramName} of task ${name} is not a task output or workflow input`;
-      }
-      passedArguments.push([paramName, arg]);
-    }
+    let passedArguments = passedArgumentsWithInputOrder(reference, args, "task", name);
     if (!callsObj[name]) {
       callsObj[name] = [];
     }
@@ -304,25 +286,28 @@ function sameValues(arr1, arr2) {
   return true;
 }
 
-function passedArgumentsWithInputOrder(reference, args) {
+function passedArgumentsWithInputOrder(reference, args, recieverTypeName, name) {
   let passedArguments = [];
   const inputOrder = reference.spec.template.config?.inputOrder.split(",");
+  if (inputOrder.length == 1 && inputOrder[0] == "") {
+    inputOrder.pop();
+  }
   if (
     inputOrder.length !=
       Object.keys(reference.spec.template.interface.inputs.variables).length
   ) {
-    throw "Length of inputs in input order does not match task interface";
+    throw `Length of inputs in input order does not match ${recieverTypeName} interface`;
   }
   if (inputOrder.length != args.length) {
-    throw `Wrong number of inputs recieved by task reference; takes ${inputOrder.length}, recieved ${args.length}`;
+    throw `Wrong number of inputs recieved by ${recieverTypeName}; takes ${inputOrder.length}, recieved ${args.length}`;
   }
   for (let i = 0; i < inputOrder.length; i++) {
     let [paramName, arg] = [inputOrder[i], args[i]];
     if (arg instanceof Promise) {
-      throw "Tasks cannot take Promises as input";
+      throw `${recieverTypeName[0].toUpperCase() + recieverTypeName.slice(1)} cannot take Promises as input`;
     }
     if (!(arg instanceof PromiseBinding)) {
-      throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
+      throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
     }
     passedArguments.push([paramName, arg]);
   }
@@ -371,7 +356,7 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       passedArguments = passedArgumentsWithoutInputOrder(reference, args);
     } catch (e) {
       if (reference.spec.template.config?.inputOrder) {
-        passedArguments = passedArgumentsWithInputOrder(reference, args);
+        passedArguments = passedArgumentsWithInputOrder(reference, args, "task reference", name);
       } else {
         throw e;
       }
