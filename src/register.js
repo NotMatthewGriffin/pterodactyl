@@ -45,7 +45,7 @@ class PrimitiveBinding {
       binding: {
         scalar: {
           primitive: {
-            string: JSON.stringify(this.value),
+            string_value: JSON.stringify(this.value),
           },
         },
       },
@@ -307,7 +307,11 @@ function passedArgumentsWithInputOrder(reference, args, recieverTypeName, name) 
       throw `${recieverTypeName[0].toUpperCase() + recieverTypeName.slice(1)} cannot take Promises as input`;
     }
     if (!(arg instanceof PromiseBinding)) {
-      throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
+      if (isSerializable(arg)) {
+	arg = new PrimitiveBinding(arg);
+      } else {
+	throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
+      }
     }
     passedArguments.push([paramName, arg]);
   }
@@ -340,7 +344,11 @@ function passedArgumentsWithoutInputOrder(reference, args) {
       throw "Tasks cannot take Promises as input";
     }
     if (!(arg instanceof PromiseBinding)) {
-      throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
+      if (isSerializable(arg)) {
+	arg = new PrimitiveBinding(arg);
+      } else {
+	throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
+      }
     }
 
     passedArguments.push([paramName, arg]);
@@ -398,7 +406,11 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         throw "Launch Plans cannot take Promises as input";
       }
       if (!(arg instanceof PromiseBinding)) {
-        throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
+	if (isSerializable(arg)) {
+	  arg = new PrimitiveBinding(arg);
+	} else {
+	  throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
+	}
       }
       passedArguments.push([paramName, arg]);
     }
@@ -484,11 +496,15 @@ async function convertToWorkflow(
   const consistentFunc = f instanceof AsyncFunction
     ? f
     : async (...inputs) => f(...inputs);
-  const result = await consistentFunc(
+  let result = await consistentFunc(
     ...inputs,
   );
   if (!(result instanceof PromiseBinding)) {
-    throw `Workflow ${workflowName} output is not task output or workflow input`;
+    if (isSerializable(result)) {
+      result = new PrimitiveBinding(result);
+    } else {
+      throw `Workflow ${workflowName} output is not task output or workflow input`;
+    }
   }
 
   const taskNodes = [];
