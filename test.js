@@ -214,8 +214,8 @@ Deno.test("pterodactyl tests", async (t) => {
         "./test-cases/constantInput/workflow.js",
         "denoland/deno:distroless-1.24.1",
         [
-          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"f","version":"v1"}',
-          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"mul10","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"CIf","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"CImul10","version":"v1"}',
           'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"constantInput","version":"v1"}',
           'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"constantInput","version":"v1"}',
           "",
