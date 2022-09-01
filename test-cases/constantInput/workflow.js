@@ -1,13 +1,13 @@
 import pterodactyl from "../../pterodactyl.js";
 
-const f = () => 10;
-const fTask = pterodactyl.task(f);
+const CIf = () => 10;
+const fTask = pterodactyl.task(CIf);
 
-const mul10 = (val) => val * 10;
-const mul10Task = pterodactyl.task(mul10);
+const CImul10 = (val) => val * 10;
+const mul10Task = pterodactyl.task(CImul10);
 
-const workflow = pterodactyl.workflow(function failWorkflow() {
-  return mul10Task(f());
+const workflow = pterodactyl.workflow(function constantInput() {
+  return mul10Task(CIf());
 });
 
 if (import.meta.main) {

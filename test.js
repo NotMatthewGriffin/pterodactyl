@@ -6,9 +6,7 @@ import {
   assertEquals,
 } from "https://deno.land/std@0.151.0/testing/asserts.ts";
 
-import {
-  isSerializable
-} from "./src/register.js";
+import { isSerializable } from "./src/register.js";
 
 const basicRegistrationCmd = [
   "deno",
@@ -27,7 +25,7 @@ const basicRegistrationCmd = [
 ];
 
 Deno.test("isSerializable test", async (t) => {
-  class TestClass{
+  class TestClass {
     constructor(x) {
       this.x = x;
     }
@@ -51,7 +49,7 @@ Deno.test("isSerializable test", async (t) => {
   });
 
   await t.step("Plain object is serializable", async (t) => {
-    assert(isSerializable({x: 10}), "Plain object not serializable");
+    assert(isSerializable({ x: 10 }), "Plain object not serializable");
   });
 
   await t.step("Class is not serializable", async (t) => {
@@ -62,9 +60,8 @@ Deno.test("isSerializable test", async (t) => {
     assert(!isSerializable([new TestClass(10)]), "class is serializable");
   });
 
-
   await t.step("Class nested in object is not serializable", async (t) => {
-    assert(!isSerializable({x:new TestClass(10)}), "class is serializable");
+    assert(!isSerializable({ x: new TestClass(10) }), "class is serializable");
   });
 });
 
@@ -177,49 +174,80 @@ Deno.test("pterodactyl tests", async (t) => {
       );
     });
 
-    await t.step("Register workflow using zero argument task reference", async (t) => {
-      await expectRegisterSuccess(
-        "./test-cases/references/referencesZeroArgumentTask.js",
-        "denoland/deno:distroless-1.24.1",
-        [
-          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesNoArgsTaskReference","version":"v1"}',
-          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesNoArgsTaskReference","version":"v1"}',
-          "",
-        ].join("\n"),
-        "Failed to register workflow with task reference",
-      );
-    });
+    await t.step(
+      "Register workflow using zero argument task reference",
+      async (t) => {
+        await expectRegisterSuccess(
+          "./test-cases/references/referencesZeroArgumentTask.js",
+          "denoland/deno:distroless-1.24.1",
+          [
+            'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesNoArgsTaskReference","version":"v1"}',
+            'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesNoArgsTaskReference","version":"v1"}',
+            "",
+          ].join("\n"),
+          "Failed to register workflow with task reference",
+        );
+      },
+    );
 
-    await t.step("Register workflow using task reference with named arguments", async (t) => {
-      await expectRegisterSuccess(
-	"./test-cases/references/namedArgumentTaskReferenceWorkflow.js",
-        "denoland/deno:distroless-1.24.1",
-        [
-          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesTaskReferenceNamedArgument","version":"v1"}',
-          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesTaskReferenceNamedArgument","version":"v1"}',
-          "",
-        ].join("\n"),
-        "Failed to register workflow with task reference",
-      );
-    });
-  });
-
-  // Fail to register with constant inputs
-  await t.step("Fail to register workflow with constant input", async (t) => {
-    await expectRegisterFailure(
-      "./test-cases/constantInput/workflow.js",
-      "denoland/deno:distroless-1.24.1",
-      '"Argument for parameter input0 of task mul10 is not a task output or workflow input"',
-      "Registered a failing workflow",
+    await t.step(
+      "Register workflow using task reference with named arguments",
+      async (t) => {
+        await expectRegisterSuccess(
+          "./test-cases/references/namedArgumentTaskReferenceWorkflow.js",
+          "denoland/deno:distroless-1.24.1",
+          [
+            'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesTaskReferenceNamedArgument","version":"v1"}',
+            'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesTaskReferenceNamedArgument","version":"v1"}',
+            "",
+          ].join("\n"),
+          "Failed to register workflow with task reference",
+        );
+      },
     );
   });
 
-  // Fail to register workflow with constant outputs
+  await t.step(
+    "Register workflow using constant inputs to tasks",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/constantInput/workflow.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"CIf","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"CImul10","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"constantInput","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"constantInput","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with constant inputs",
+      );
+    },
+  );
+
+  await t.step(
+    "Register workflow with constant output",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/constantOutput/workflow.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"waitForThis","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"constantOutput","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"constantOutput","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with constant output",
+      );
+    },
+  );
+
+  // Fail to register workflow that has no nodes
   await t.step("Fail to register workflow with constant output", async (t) => {
     await expectRegisterFailure(
-      "./test-cases/constantOutput/workflow.js",
+      "./test-cases/constantOutput/noNodes.js",
       "denoland/deno:distroless-1.24.1",
-      '"Workflow constantOutput output is not task output or workflow input"',
+      '"Workflow constantOutput contains no tasks or references"',
       "Registered a failing workflow",
     );
   });
