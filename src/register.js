@@ -519,6 +519,9 @@ async function convertToWorkflow(
       taskNodes.push(taskNode);
     }
   }
+  if (taskNodes.length === 0) {
+    throw `Workflow ${workflowName} contains no tasks or references`;
+  }
 
   const workflowId = {
     resource_type: "WORKFLOW",
