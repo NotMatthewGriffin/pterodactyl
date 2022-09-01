@@ -256,7 +256,12 @@ function getOutputNameFromLaunchPlan(launchPlan) {
 function inputCaptureObj(registeredObjs, callsObj, name, isAsync) {
   let captureObj = (...args) => {
     const reference = registeredObjs.tasks[name];
-    let passedArguments = passedArgumentsWithInputOrder(reference, args, "task", name);
+    let passedArguments = passedArgumentsWithInputOrder(
+      reference,
+      args,
+      "task",
+      name,
+    );
     if (!callsObj[name]) {
       callsObj[name] = [];
     }
@@ -286,7 +291,12 @@ function sameValues(arr1, arr2) {
   return true;
 }
 
-function passedArgumentsWithInputOrder(reference, args, recieverTypeName, name) {
+function passedArgumentsWithInputOrder(
+  reference,
+  args,
+  recieverTypeName,
+  name,
+) {
   let passedArguments = [];
   const inputOrder = reference.spec.template.config?.inputOrder.split(",");
   if (inputOrder.length == 1 && inputOrder[0] == "") {
@@ -304,13 +314,15 @@ function passedArgumentsWithInputOrder(reference, args, recieverTypeName, name) 
   for (let i = 0; i < inputOrder.length; i++) {
     let [paramName, arg] = [inputOrder[i], args[i]];
     if (arg instanceof Promise) {
-      throw `${recieverTypeName[0].toUpperCase() + recieverTypeName.slice(1)} cannot take Promises as input`;
+      throw `${
+        recieverTypeName[0].toUpperCase() + recieverTypeName.slice(1)
+      } cannot take Promises as input`;
     }
     if (!(arg instanceof PromiseBinding)) {
       if (isSerializable(arg)) {
-	arg = new PrimitiveBinding(arg);
+        arg = new PrimitiveBinding(arg);
       } else {
-	throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
+        throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
       }
     }
     passedArguments.push([paramName, arg]);
@@ -345,9 +357,9 @@ function passedArgumentsWithoutInputOrder(reference, args) {
     }
     if (!(arg instanceof PromiseBinding)) {
       if (isSerializable(arg)) {
-	arg = new PrimitiveBinding(arg);
+        arg = new PrimitiveBinding(arg);
       } else {
-	throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
+        throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
       }
     }
 
@@ -364,7 +376,12 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       passedArguments = passedArgumentsWithoutInputOrder(reference, args);
     } catch (e) {
       if (reference.spec.template.config?.inputOrder) {
-        passedArguments = passedArgumentsWithInputOrder(reference, args, "task reference", name);
+        passedArguments = passedArgumentsWithInputOrder(
+          reference,
+          args,
+          "task reference",
+          name,
+        );
       } else {
         throw e;
       }
@@ -406,11 +423,11 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
         throw "Launch Plans cannot take Promises as input";
       }
       if (!(arg instanceof PromiseBinding)) {
-	if (isSerializable(arg)) {
-	  arg = new PrimitiveBinding(arg);
-	} else {
-	  throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
-	}
+        if (isSerializable(arg)) {
+          arg = new PrimitiveBinding(arg);
+        } else {
+          throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
+        }
       }
       passedArguments.push([paramName, arg]);
     }

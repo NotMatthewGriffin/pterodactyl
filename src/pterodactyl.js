@@ -1,12 +1,11 @@
 globalThis.pterodactylConfig = globalThis.pterodactylConfig ?? {
   taskTransformer: (f) => f,
   workflowTransformer: (f) => f,
-  taskReferenceTransformer: ({ project, domain, name, version }) =>
-    () => {
-      throw "taskReference can't be used locally";
-    },
-  launchPlanReferenceTransformer: ({ project, domain, name, version }) =>
-    () => {
+  taskReferenceTransformer: ({ project, domain, name, version }) => () => {
+    throw "taskReference can't be used locally";
+  },
+  launchPlanReferenceTransformer:
+    ({ project, domain, name, version }) => () => {
       throw "launchPlanReference can't be used locally";
     },
 };
