@@ -1,4 +1,5 @@
 import * as _ from "./pterodactyl.js";
+import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
 
@@ -103,6 +104,7 @@ function generateContainer(pkg, image, taskName) {
     image: image,
     args: [
       "run",
+      "--allow-env",
       "--allow-read",
       "--allow-write",
       "--allow-net",
@@ -164,6 +166,12 @@ function checkOutputName(options) {
   }
 }
 
+function checkSecrets(options) {
+  if (options?.secrets && !Array.isArray(options.secrets)) {
+    throw "secrets option must be an array";
+  }
+}
+
 function convertToTask(
   pkg,
   image,
@@ -177,6 +185,7 @@ function convertToTask(
   const inputCount = f.length;
   checkParamNames(options, inputCount);
   checkOutputName(options);
+  checkSecrets(options);
 
   const inputs = options?.paramNames
     ? generateAllNamedVariables(options.paramNames)
@@ -184,6 +193,8 @@ function convertToTask(
   const output = options?.outputName
     ? generateAllNamedVariables([options.outputName])
     : generateAllVariables("output", 1);
+  // validate secrets
+  const secrets = options?.secrets?.map((x) => new Secret(x));
 
   return [taskName, {
     id: {
@@ -199,7 +210,7 @@ function convertToTask(
         metadata: {
           runtime: {
             type: "OTHER",
-            version: "0.1.0",
+            version: "0.2.0",
             flavor: "pterodactyl",
           },
           retries: {},
@@ -219,6 +230,13 @@ function convertToTask(
           },
         },
         container: generateContainer(pkg, image, taskName),
+        ...(secrets
+          ? {
+            security_context: {
+              secrets: secrets,
+            },
+          }
+          : {}),
         config: {
           inputOrder: Object.keys(inputs).join(","),
           ...Object.fromEntries(
