@@ -104,6 +104,7 @@ function generateContainer(pkg, image, taskName) {
     image: image,
     args: [
       "run",
+      "--allow-env",
       "--allow-read",
       "--allow-write",
       "--allow-net",
@@ -166,7 +167,7 @@ function checkOutputName(options) {
 }
 
 function checkSecrets(options) {
-  if (options?.secrets && !Array.isArray(options.secrets)){
+  if (options?.secrets && !Array.isArray(options.secrets)) {
     throw "secrets option must be an array";
   }
 }
@@ -193,7 +194,7 @@ function convertToTask(
     ? generateAllNamedVariables([options.outputName])
     : generateAllVariables("output", 1);
   // validate secrets
-  const secrets = options?.secrets?.map(x => new Secret(x));
+  const secrets = options?.secrets?.map((x) => new Secret(x));
 
   return [taskName, {
     id: {
@@ -229,11 +230,13 @@ function convertToTask(
           },
         },
         container: generateContainer(pkg, image, taskName),
-	...(secrets ? { 
-	  security_context: {
-	    secrets: secrets
-	  }
-	}: {}),
+        ...(secrets
+          ? {
+            security_context: {
+              secrets: secrets,
+            },
+          }
+          : {}),
         config: {
           inputOrder: Object.keys(inputs).join(","),
           ...Object.fromEntries(
