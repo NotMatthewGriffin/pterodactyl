@@ -6,4 +6,4 @@ export {
   workflow,
 } from "./src/pterodactyl.js";
 
-export { Secret, SecretMountType } from "./src/secret.js";
+export { getSecret, Secret, SecretMountType } from "./src/secret.js";

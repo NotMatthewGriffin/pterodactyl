@@ -8,7 +8,7 @@ import {
 } from "https://deno.land/std@0.151.0/testing/asserts.ts";
 
 import { isSerializable } from "./src/register.js";
-import { Secret, SecretMountType } from "./pterodactyl.js";
+import { getSecret, Secret, SecretMountType } from "./pterodactyl.js";
 
 const basicRegistrationCmd = [
   "deno",
@@ -68,8 +68,8 @@ Deno.test("isSerializable test", async (t) => {
 });
 
 Deno.test("secret validation test", async (t) => {
-  await t.step("Secret with group only is valid", async (t) => {
-    const secret = new Secret({ group: "secret-group" });
+  await t.step("Secret with group only is invalid", async (t) => {
+    assertThrows(() => new Secret({ group: "secret-group" }));
   });
 
   await t.step("Secret with non string group is invalid", async (t) => {
@@ -100,12 +100,14 @@ Deno.test("secret validation test", async (t) => {
   );
 
   await t.step(
-    "Secret with group and mount_requirement is valid",
+    "Secret with group and mount_requirement is invalid",
     async (t) => {
-      const secret = new Secret({
-        group: "secret-group",
-        mount_requirement: SecretMountType.FILE,
-      });
+      assertThrows(() =>
+        new Secret({
+          group: "secret-group",
+          mount_requirement: SecretMountType.FILE,
+        })
+      );
     },
   );
 
@@ -134,6 +136,36 @@ Deno.test("secret validation test", async (t) => {
       '{"group":"group","key":"key","mount_requirement":1}',
     );
   });
+});
+
+Deno.test("getSecret tests", async (t) => {
+  const value = "yes";
+  const group = "secretgroup";
+  const key = "secretkey";
+  Deno.env.set("FLYTE_SECRETS_ENV_PREFIX", "_FSEC_");
+  Deno.env.set("_FSEC_SECRETGROUP_SECRETKEY", value);
+
+  await t.step("Can getSecret from env var", async (t) => {
+
+    const secretValue = getSecret({
+      group: group,
+      key: key,
+    });
+    assertEquals(value, secretValue);
+  });
+
+  Deno.env.set("FLYTE_SECRETS_DEFAULT_DIR", Deno.cwd());
+  await Deno.mkdir(group);
+  await Deno.writeTextFile(`${group}/${key}`, value);
+  await t.step("Can getSecret from file", async (t) => {
+
+    const secretValue = getSecret({
+      group: group,
+      key: key,
+    });
+    assertEquals(value, secretValue);
+  });
+  await Deno.remove(group, { recursive: true });
 });
 
 Deno.test("pterodactyl tests", async (t) => {
@@ -335,23 +367,29 @@ Deno.test("pterodactyl tests", async (t) => {
     );
   });
 
-  await t.step("Fail to register task that uses poorly formed secret", async (t) => {
-    await expectRegisterFailure(
-      "./test-cases/uses-secret/noGroupSecret.js",
-      "denoland/deno:distroless-1.24.1",
-      '"undefined is not a valid secret group, must be a string"',
-      "Registered a task using secret without group",
-    );
-  });
+  await t.step(
+    "Fail to register task that uses poorly formed secret",
+    async (t) => {
+      await expectRegisterFailure(
+        "./test-cases/uses-secret/noGroupSecret.js",
+        "denoland/deno:distroless-1.24.1",
+        '"undefined is not a valid secret group, must be a string; undefined is not a valid secret key, must be a string"',
+        "Registered a task using secret without group",
+      );
+    },
+  );
 
-  await t.step("Fail to register task that uses non array secrets option", async (t) => {
-    await expectRegisterFailure(
-      "./test-cases/uses-secret/nonArraySecrets.js",
-      "denoland/deno:distroless-1.24.1",
-      '"secrets option must be an array"',
-      "Registered a task using non array secrets option",
-    );
-  })
+  await t.step(
+    "Fail to register task that uses non array secrets option",
+    async (t) => {
+      await expectRegisterFailure(
+        "./test-cases/uses-secret/nonArraySecrets.js",
+        "denoland/deno:distroless-1.24.1",
+        '"secrets option must be an array"',
+        "Registered a task using non array secrets option",
+      );
+    },
+  );
 
   // Teardown cluster
   const clusterDownStatus = await stopCluster();

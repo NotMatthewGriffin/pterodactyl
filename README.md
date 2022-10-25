@@ -110,4 +110,5 @@ After adding the helm repo you'll need to run `helm repo update`.
 
 ### Test command
 
-With the prerequisites out of the way you can test pterodactyl by running the following in this project's root directory: `deno test --allow-run`.
+With the prerequisites out of the way you can test pterodactyl by running the following in this project's root directory: `deno test --allow-run --allow-read --allow-write --allow-env` or `deno test -A`.
+
