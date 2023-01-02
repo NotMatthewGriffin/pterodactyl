@@ -1,1 +1,1 @@
-export { parse } from "https://deno.land/std@0.133.0/flags/mod.ts";
+export { parse } from "https://deno.land/std@0.170.0/flags/mod.ts";

@@ -5,7 +5,7 @@ import {
   assert,
   assertEquals,
   assertThrows,
-} from "https://deno.land/std@0.151.0/testing/asserts.ts";
+} from "https://deno.land/std@0.170.0/testing/asserts.ts";
 
 import { isSerializable } from "./src/register.js";
 import { getSecret, Secret, SecretMountType } from "./pterodactyl.js";
