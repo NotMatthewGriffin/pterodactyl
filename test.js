@@ -7,8 +7,13 @@ import {
   assertThrows,
 } from "https://deno.land/std@0.170.0/testing/asserts.ts";
 
-import { isSerializable } from "./src/register.js";
+import { isSerializable, registerScriptWithOptions } from "./src/register.js";
 import { getSecret, Secret, SecretMountType } from "./pterodactyl.js";
+
+const endpoint = "localhost:30081";
+const project = "flytesnacks";
+const domain = "development";
+const version = "v1";
 
 const basicRegistrationCmd = [
   "deno",
@@ -17,13 +22,13 @@ const basicRegistrationCmd = [
   "--allow-read",
   "pterodactyl_register.js",
   "--endpoint",
-  "localhost:30081",
+  endpoint,
   "--project",
-  "flytesnacks",
+  project,
   "--domain",
-  "development",
+  domain,
   "--version",
-  "v1",
+  version,
 ];
 
 Deno.test("isSerializable test", async (t) => {
@@ -146,7 +151,6 @@ Deno.test("getSecret tests", async (t) => {
   Deno.env.set("_FSEC_SECRETGROUP_SECRETKEY", value);
 
   await t.step("Can getSecret from env var", async (t) => {
-
     const secretValue = getSecret({
       group: group,
       key: key,
@@ -158,7 +162,6 @@ Deno.test("getSecret tests", async (t) => {
   await Deno.mkdir(group);
   await Deno.writeTextFile(`${group}/${key}`, value);
   await t.step("Can getSecret from file", async (t) => {
-
     const secretValue = getSecret({
       group: group,
       key: key,
@@ -345,6 +348,39 @@ Deno.test("pterodactyl tests", async (t) => {
     },
   );
 
+  await t.step("Register workflow in blob url", async (t) => {
+    const workflowString = `
+	  import { taskReference, workflow } from 'https://deno.land/x/pterodactyl@v0.2.1/pterodactyl.js';
+
+	  const ref = taskReference({project: "flytesnacks", domain: "development", version: "v1", name: "waitForThis" });
+
+	  const testcase = workflow(function blobWorkflow() {
+	  	return ref();
+	  });
+	  `;
+
+    const encoder = new TextEncoder();
+    const encodedWorkflow = encoder.encode(workflowString);
+    const workflowBlob = new Blob([encodedWorkflow], {
+      type: "text/javascript",
+    });
+    const url = URL.createObjectURL(workflowBlob);
+
+    try {
+      await expectWebRegistrationSuccess(
+        url,
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"blobWorkflow","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"blobWorkflow","version":"v1"}',
+        ].join("\n"),
+        "Failed to register workflow in blob url",
+      );
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  });
+
   // Fail to register workflow that has no nodes
   await t.step("Fail to register workflow with constant output", async (t) => {
     await expectRegisterFailure(
@@ -455,6 +491,24 @@ async function expectRegisterFailure(
     ),
     "Missing error message",
   );
+}
+
+async function expectWebRegistrationSuccess(
+  pkg,
+  image,
+  expectedMessage,
+  failureMessage,
+) {
+  const statusMessages = await registerScriptWithOptions(
+    pkg,
+    image,
+    `http://${endpoint}`,
+    project,
+    domain,
+    version,
+  );
+  const result = statusMessages.join("\n");
+  assertEquals(result, expectedMessage, failureMessage);
 }
 
 const clusterConfig = `
