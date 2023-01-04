@@ -210,7 +210,7 @@ function convertToTask(
         metadata: {
           runtime: {
             type: "OTHER",
-            version: "0.2.1",
+            version: "0.3.0",
             flavor: "pterodactyl",
           },
           retries: {},
