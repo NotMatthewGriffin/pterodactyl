@@ -786,6 +786,17 @@ async function handleWorkflowRegistration(
   registeredObjs.launchplans[workflowname] = launchPlan;
 }
 
+class LogRecorder {
+  constructor() {
+    this.records = [];
+  }
+
+  log(message) {
+    this.records.push(message);
+    console.log(message);
+  }
+}
+
 async function uploadToFlyte(endpoint, type, objs) {
   let registrationResults = await Promise.all(objs.map((obj) => {
     return fetch(`${endpoint}/api/v1/${type}`, {
@@ -800,15 +811,16 @@ async function uploadToFlyte(endpoint, type, objs) {
     return result.json();
   }));
   let error = false;
+  const logger = new LogRecorder();
   for (let i = 0; i < jsonResults.length; i++) {
     let objId = JSON.stringify(objs[i].id);
     if (Object.keys(jsonResults[i]).length == 0) {
-      console.log(`Registered ${objId}`);
+      logger.log(`Registered ${objId}`);
     } else if (
       jsonResults[i].code == 6 && jsonResults[i].error &&
       jsonResults[i].error.includes("already exists")
     ) {
-      console.log(`${objId} already registered`);
+      logger.log(`${objId} already registered`);
     } else {
       console.error(
         `Error Registering ${objId}\n\tError: ${jsonResults[i].error}`,
@@ -819,18 +831,24 @@ async function uploadToFlyte(endpoint, type, objs) {
   if (error) {
     throw `Error while registering ${type}`;
   }
+  return logger.records;
 }
 
 async function uploadTasks(endpoint, objs) {
-  return await uploadToFlyte(endpoint, "tasks", objs);
+  return uploadToFlyte(endpoint, "tasks", objs);
 }
 
 async function uploadWorkflows(endpoint, objs) {
-  return await uploadToFlyte(endpoint, "workflows", objs);
+  return uploadToFlyte(endpoint, "workflows", objs);
 }
 
 async function uploadLaunchPlans(endpoint, objs) {
-  return await uploadToFlyte(endpoint, "launch_plans", objs);
+  return uploadToFlyte(endpoint, "launch_plans", objs);
+}
+
+function isRemoteScript(scriptUrl) {
+  const remotePrefixes = ["http://", "https://", "blob:"];
+  return remotePrefixes.some((prefix) => scriptUrl.startsWith(prefix));
 }
 
 /**
@@ -842,6 +860,7 @@ async function uploadLaunchPlans(endpoint, objs) {
  * @param {string} project - Project in which to register.
  * @param {string} domain - Domain in which to register.
  * @param {string} version - Version to register as.
+ * @returns {Array} Status messages emitted during registration.
  */
 export async function registerScriptWithOptions(
   pkgs,
@@ -884,10 +903,9 @@ export async function registerScriptWithOptions(
       f,
       options,
     );
-  const userWorkflowPath =
-    pkgs.startsWith("https://") || pkgs.startsWith("http://")
-      ? pkgs
-      : `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflowPath = isRemoteScript(pkgs)
+    ? pkgs
+    : `file://${Deno.cwd()}/${pkgs}`;
   const userWorkflow = await import(userWorkflowPath);
   await populateAllTaskReferenceInformation(
     endpoint,
@@ -909,13 +927,19 @@ export async function registerScriptWithOptions(
     );
   }
   // User workflow has been imported; upload
-  await uploadTasks(endpoint, Object.values(registeredObjs.tasks));
-  await uploadWorkflows(
+  const taskUploadResults = await uploadTasks(
+    endpoint,
+    Object.values(registeredObjs.tasks),
+  );
+  const workflowUploadResults = await uploadWorkflows(
     endpoint,
     Object.values(registeredObjs.workflows),
   );
-  await uploadLaunchPlans(
+  const launchPlanUploadResults = await uploadLaunchPlans(
     endpoint,
     Object.values(registeredObjs.launchplans),
+  );
+  return taskUploadResults.concat(workflowUploadResults).concat(
+    launchPlanUploadResults,
   );
 }
