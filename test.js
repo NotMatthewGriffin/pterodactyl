@@ -381,6 +381,31 @@ Deno.test("pterodactyl tests", async (t) => {
     }
   });
 
+  await t.step("Register workflow in data url", async (t) => {
+    const workflowString = `
+	import { task, workflow } from 'https://deno.land/x/pterodactyl@v0.2.1/pterodactyl.js';
+
+	const dataUrlTask = task(function dataUrlTask() { return "success"; });
+
+	const dataUrlWorkflow = workflow(function dataUrlWorkflow() { return dataUrlTask(); });
+	`;
+
+    const encodedWorkflow = encodeURIComponent(workflowString);
+    const url = `data:text/javascript,${encodedWorkflow}`;
+
+    await expectRegisterSuccess(
+      url,
+      "denoland/deno:distroless-1.24.1",
+      [
+        'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"dataUrlTask","version":"v1"}',
+        'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"dataUrlWorkflow","version":"v1"}',
+        'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"dataUrlWorkflow","version":"v1"}',
+        "",
+      ].join("\n"),
+      "Failed to register workflow in data url",
+    );
+  });
+
   // Fail to register workflow that has no nodes
   await t.step("Fail to register workflow with constant output", async (t) => {
     await expectRegisterFailure(
@@ -549,6 +574,8 @@ async function installFlyte() {
       "-n",
       "flyte",
       "--create-namespace",
+      "--timeout",
+      "10m0s",
       "--atomic",
       "flyteorg/flyte",
     ],

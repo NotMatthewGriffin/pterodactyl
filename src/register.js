@@ -1,4 +1,5 @@
 import * as _ from "./pterodactyl.js";
+import { needsFilePrefix } from "./utils.js";
 import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
@@ -210,7 +211,7 @@ function convertToTask(
         metadata: {
           runtime: {
             type: "OTHER",
-            version: "0.3.0",
+            version: "0.4.0",
             flavor: "pterodactyl",
           },
           retries: {},
@@ -846,11 +847,6 @@ async function uploadLaunchPlans(endpoint, objs) {
   return uploadToFlyte(endpoint, "launch_plans", objs);
 }
 
-function isRemoteScript(scriptUrl) {
-  const remotePrefixes = ["http://", "https://", "blob:"];
-  return remotePrefixes.some((prefix) => scriptUrl.startsWith(prefix));
-}
-
 /**
  * Register a javascript file with functions annotated as tasks or workflows
  * to a running flyte cluster so that it can be executed.
@@ -903,9 +899,9 @@ export async function registerScriptWithOptions(
       f,
       options,
     );
-  const userWorkflowPath = isRemoteScript(pkgs)
-    ? pkgs
-    : `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflowPath = needsFilePrefix(pkgs)
+    ? `file://${Deno.cwd()}/${pkgs}`
+    : pkgs;
   const userWorkflow = await import(userWorkflowPath);
   await populateAllTaskReferenceInformation(
     endpoint,
