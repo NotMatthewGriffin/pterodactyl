@@ -1,4 +1,5 @@
 import { parse } from "./src/deps.js";
+import { needsFilePrefix } from "./src/utils.js";
 import * as _ from "./pterodactyl.js";
 
 const AsyncFunction = (async () => {}).constructor;
@@ -86,10 +87,9 @@ if (import.meta.main) {
   globalThis.pterodactylConfig.taskTransformer = (f, options) => {
     return handleTaskSeenInImport(taskSeen, task, f, options);
   };
-  const userWorkflowPath =
-    pkgs.startsWith("https://") || pkgs.startsWith("http://")
-      ? pkgs
-      : `file://${Deno.cwd()}/${pkgs}`;
+  const userWorkflowPath = needsFilePrefix(pkgs)
+    ? `file://${Deno.cwd()}/${pkgs}`
+    : pkgs;
   const userWorkflow = await import(userWorkflowPath);
   const [[taskFunction, options]] = taskSeen;
   await handleTaskExecution(inputdir, outputdir, taskFunction, options);
