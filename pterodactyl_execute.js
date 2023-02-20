@@ -11,9 +11,12 @@ function getNameFromFunction(f) {
   return f.name;
 }
 
-function collectInputFile(filename) {
+function collectInputFile(filename, typeFunction) {
   // try to read and parse as json if not treat as string
   const fileContent = Deno.readTextFileSync(filename);
+  if (typeFunction) {
+    return typeFunction(fileContent);
+  }
   try {
     return JSON.parse(fileContent);
   } catch {
@@ -31,6 +34,7 @@ function collectInputs(inputdir, f, options) {
       options?.paramNames
         ? `${inputdir}/${options.paramNames[i]}`
         : `${inputdir}/input${i}`,
+      options?.paramTypes?.[i],
     );
   }
 

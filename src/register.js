@@ -3,9 +3,9 @@ import { needsFilePrefix } from "./utils.js";
 import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
-const validTypes = [[Number, "float"], [String, "string"], [
+const validTypes = [[Number, "FLOAT"], [String, "STRING"], [
   Boolean,
-  "boolean",
+  "BOOLEAN",
 ]];
 
 export function isSerializable(value) {
@@ -70,11 +70,12 @@ function getNameFromFunction(f) {
   return f.name;
 }
 
-function generateVariable(variableName) {
+function generateVariable(variableName, variableType) {
+  const variableTypeName = isValidType(variableType)?.[1] ?? "STRING";
   return {
     [variableName]: {
       type: {
-        simple: "STRING",
+        simple: variableTypeName,
       },
       description: variableName,
     },
@@ -89,10 +90,10 @@ function generateAllVariableNames(name, count) {
   return names;
 }
 
-function generateAllNamedVariables(names) {
+function generateAllNamedVariables(names, types) {
   let variables = {};
   for (let i = 0; i < names.length; i++) {
-    variables = { ...variables, ...generateVariable(names[i]) };
+    variables = { ...variables, ...generateVariable(names[i], types?.[i]) };
   }
   return variables;
 }
@@ -229,10 +230,11 @@ function convertToTask(
 
   const inputs = generateAllNamedVariables(
     options?.paramNames ?? generateAllVariableNames("input", inputCount),
+    options?.paramTypes,
   );
   const output = generateAllNamedVariables([
     options?.outputName ?? generateAllVariableNames("output", 1)[0],
-  ]);
+  ], [options?.outputType]);
 
   // validate secrets
   const secrets = options?.secrets?.map((x) => new Secret(x));
@@ -618,10 +620,13 @@ async function convertToWorkflow(
             variables: generateAllNamedVariables(
               options?.paramNames ??
                 generateAllVariableNames("input", inputCount),
+              options?.paramTypes,
             ),
           },
           outputs: {
-            variables: generateAllNamedVariables([workflowOutputName]),
+            variables: generateAllNamedVariables([workflowOutputName], [
+              options?.outputType,
+            ]),
           },
         },
         nodes: [
@@ -658,16 +663,15 @@ function makeLaunchPlan(workflowobj, options) {
     i < inputCount;
     i++
   ) {
-    const parameterName = options?.paramNames
-      ? options?.paramNames[i]
-      : `input${i}`;
+    const parameterName = options?.paramNames?.[i] ?? `input${i}`;
+    const parameterType = isValidType(options?.paramTypes?.[i])[1] ?? "STRING";
     parameters = {
       ...parameters,
       ...{
         [parameterName]: {
           var: {
             type: {
-              simple: "STRING",
+              simple: parameterType,
             },
             description: parameterName,
           },
