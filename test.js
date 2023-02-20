@@ -452,6 +452,30 @@ Deno.test("pterodactyl tests", async (t) => {
     },
   );
 
+  await t.step(
+    "Fail to register task that uses invalid paramTypes",
+    async (t) => {
+      await expectRegisterFailure(
+        "./test-cases/typedTasks/invalidTypes.js",
+        "denoland/deno:distroless-1.24.1",
+        '"Provided paramType Double is not a valid type; Provided paramType Double is not a valid type; paramType must be one of Number, String, or Boolean"',
+        "Registered a task using invalid paramTypes",
+      );
+    },
+  );
+
+await t.step(
+    "Fail to register task that uses invalid paramTypes",
+    async (t) => {
+      await expectRegisterFailure(
+        "./test-cases/typedTasks/invalidOutputType.js",
+        "denoland/deno:distroless-1.24.1",
+        '"Provided outputType Double is not a valid type; outputType must be one of Number, String, or Boolean"',
+        "Registered a task using invalid output type",
+      );
+    },
+  );
+
   // Teardown cluster
   const clusterDownStatus = await stopCluster();
 });
