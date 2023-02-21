@@ -282,12 +282,12 @@ function convertToTask(
           : {}),
         config: {
           inputOrder: Object.keys(inputs).join(","),
-          ...Object.fromEntries(
+          ...(options?.paramTypes ? {} : Object.fromEntries(
             Object.keys(inputs).map((name) => [`input-${name}`, "untyped"]),
-          ),
-          ...Object.fromEntries(
+          )),
+          ...(options?.outputType ? {} : Object.fromEntries(
             Object.keys(output).map((name) => [`output-${name}`, "untyped"]),
-          ),
+          )),
         },
       },
     },
@@ -664,7 +664,7 @@ function makeLaunchPlan(workflowobj, options) {
     i++
   ) {
     const parameterName = options?.paramNames?.[i] ?? `input${i}`;
-    const parameterType = isValidType(options?.paramTypes?.[i])[1] ?? "STRING";
+    const parameterType = isValidType(options?.paramTypes?.[i])?.[1] ?? "STRING";
     parameters = {
       ...parameters,
       ...{

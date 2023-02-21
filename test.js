@@ -464,7 +464,7 @@ Deno.test("pterodactyl tests", async (t) => {
     },
   );
 
-await t.step(
+  await t.step(
     "Fail to register task that uses invalid paramTypes",
     async (t) => {
       await expectRegisterFailure(
@@ -472,6 +472,54 @@ await t.step(
         "denoland/deno:distroless-1.24.1",
         '"Provided outputType Double is not a valid type; outputType must be one of Number, String, or Boolean"',
         "Registered a task using invalid output type",
+      );
+    },
+  );
+
+  await t.step(
+    "Register typed workflow with Number paramTypes and output types",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/typedTasks/typedSum.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"sumNumbers","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"squareNumbers","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"sumOfSquaredNumbers","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"sumOfSquaredNumbers","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register workflow with number types",
+      );
+    },
+  );
+
+  await t.step(
+    "Register typed task with boolean paramTypes and output types",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/typedTasks/booleanOr.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"booleanOr","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register task with boolean types",
+      );
+    },
+  );
+
+  await t.step(
+    "Register typed task with string paramTypes and output types",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/typedTasks/concat.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"concat","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register task with string types",
       );
     },
   );

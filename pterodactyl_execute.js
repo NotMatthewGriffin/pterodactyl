@@ -42,9 +42,12 @@ function collectInputs(inputdir, f, options) {
 }
 
 function writeOutput(outputdir, output, options) {
-  const jsonOutput = JSON.stringify(output);
+  let serializationFunction = options?.outputType === String
+    ? (v) => v
+    : JSON.stringify;
+  const fileOutput = serializationFunction(output);
   const outputName = options?.outputName ?? "output0";
-  Deno.writeTextFileSync(`${outputdir}/${outputName}`, jsonOutput);
+  Deno.writeTextFileSync(`${outputdir}/${outputName}`, fileOutput);
 }
 
 function handleTaskSeenInImport(
