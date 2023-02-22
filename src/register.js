@@ -3,9 +3,14 @@ import { needsFilePrefix } from "./utils.js";
 import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
-const validTypes = [[Number, "FLOAT"], [String, "STRING"], [
+const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
+  String,
+  "STRING",
+  (v) => (typeof v === "string"),
+], [
   Boolean,
   "BOOLEAN",
+  (v) => (typeof v === "boolean"),
 ]];
 
 export function isSerializable(value) {
@@ -42,17 +47,37 @@ class PromiseBinding {
 }
 
 class PrimitiveBinding {
-  constructor(value) {
+  constructor(value, bindingType) {
     this.value = value;
+    this.updateType(bindingType);
+  }
+
+  updateType(bindingType) {
+    this.bindingType = bindingType;
+    let [_, typeString, typeValidator] = isValidType(bindingType) ??
+      [undefined, undefined, (v) => true];
+    if (!typeValidator(this.value)) {
+      throw `${this.value} is not a valid ${typeString}`;
+    }
   }
 
   bindingObj() {
+    let primitive = { string_value: JSON.stringify(this.value) };
+    switch (this.bindingType) {
+      case Number:
+        primitive = { float_value: this.value };
+        break;
+      case String:
+        primitive = { string_value: this.value };
+        break;
+      case Boolean:
+        primitive = { "boolean": this.value };
+        break;
+    }
     return {
       binding: {
         scalar: {
-          primitive: {
-            string_value: JSON.stringify(this.value),
-          },
+          primitive: primitive,
         },
       },
     };
@@ -61,6 +86,10 @@ class PrimitiveBinding {
 
 function isValidType(paramType) {
   return validTypes.find(([validType, _]) => validType === paramType);
+}
+
+function isValidTypeName(typeName) {
+  return validTypes.find(([_, validTypeName]) => validTypeName === typeName);
 }
 
 function getNameFromFunction(f) {
@@ -352,6 +381,15 @@ function sameValues(arr1, arr2) {
   return true;
 }
 
+function getParamTypeFromTaskReference(reference, name) {
+  if (reference.spec.template.config[`input-${name}`] === "untyped") {
+    return undefined;
+  }
+  let typeName =
+    reference.spec.template.interface.inputs.variables[name].type.simple;
+  return isValidTypeName(typeName)?.[0];
+}
+
 function passedArgumentsWithInputOrder(
   reference,
   args,
@@ -381,7 +419,10 @@ function passedArgumentsWithInputOrder(
     }
     if (!(arg instanceof PromiseBinding)) {
       if (isSerializable(arg)) {
-        arg = new PrimitiveBinding(arg);
+        arg = new PrimitiveBinding(
+          arg,
+          getParamTypeFromTaskReference(reference, paramName),
+        );
       } else {
         throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
       }
@@ -418,7 +459,10 @@ function passedArgumentsWithoutInputOrder(reference, args) {
     }
     if (!(arg instanceof PromiseBinding)) {
       if (isSerializable(arg)) {
-        arg = new PrimitiveBinding(arg);
+        arg = new PrimitiveBinding(
+          arg,
+          getParamTypeFromTaskReference(reference, paramName),
+        );
       } else {
         throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
       }
@@ -458,6 +502,12 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
   };
 }
 
+function getParamTypeFromLaunchPlanReference(reference, name) {
+  let typeName =
+    reference.closure.expected_inputs.parameters[name]?.var.type.simple;
+  return isValidTypeName(typeName)?.[0];
+}
+
 function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
   return (...args) => {
     let passedArguments = [];
@@ -485,7 +535,10 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       }
       if (!(arg instanceof PromiseBinding)) {
         if (isSerializable(arg)) {
-          arg = new PrimitiveBinding(arg);
+          arg = new PrimitiveBinding(
+            arg,
+            getParamTypeFromLaunchPlanReference(reference, paramName),
+          );
         } else {
           throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
         }
@@ -579,7 +632,7 @@ async function convertToWorkflow(
   );
   if (!(result instanceof PromiseBinding)) {
     if (isSerializable(result)) {
-      result = new PrimitiveBinding(result);
+      result = new PrimitiveBinding(result, options?.outputType);
     } else {
       throw `Workflow ${workflowName} output is not task output or workflow input`;
     }
@@ -664,7 +717,8 @@ function makeLaunchPlan(workflowobj, options) {
     i++
   ) {
     const parameterName = options?.paramNames?.[i] ?? `input${i}`;
-    const parameterType = isValidType(options?.paramTypes?.[i])?.[1] ?? "STRING";
+    const parameterType = isValidType(options?.paramTypes?.[i])?.[1] ??
+      "STRING";
     parameters = {
       ...parameters,
       ...{
@@ -720,7 +774,12 @@ function handleTaskRegistration(
     options,
   );
   registeredObjs.tasks[taskName] = taskobj;
-  return inputCaptureObj(registeredObjs, callsObj, taskName, isAsync);
+  return inputCaptureObj(
+    registeredObjs,
+    callsObj,
+    taskName,
+    isAsync,
+  );
 }
 
 function handleTaskReferenceSeen(

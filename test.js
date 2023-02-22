@@ -477,19 +477,39 @@ Deno.test("pterodactyl tests", async (t) => {
   );
 
   await t.step(
-    "Register typed workflow with Number paramTypes and output types",
+    "Register typed workflows and use them in references",
     async (t) => {
-      await expectRegisterSuccess(
-        "./test-cases/typedTasks/typedSum.js",
-        "denoland/deno:distroless-1.24.1",
-        [
-          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"sumNumbers","version":"v1"}',
-          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"squareNumbers","version":"v1"}',
-          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"sumOfSquaredNumbers","version":"v1"}',
-          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"sumOfSquaredNumbers","version":"v1"}',
-          "",
-        ].join("\n"),
-        "Failed to register workflow with number types",
+      await t.step(
+        "Register typed workflow with Number paramTypes and output types",
+        async (t) => {
+          await expectRegisterSuccess(
+            "./test-cases/typedTasks/typedSum.js",
+            "denoland/deno:distroless-1.24.1",
+            [
+              'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"sumNumbers","version":"v1"}',
+              'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"squareNumbers","version":"v1"}',
+              'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"sumOfSquaredNumbers","version":"v1"}',
+              'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"sumOfSquaredNumbers","version":"v1"}',
+              "",
+            ].join("\n"),
+            "Failed to register workflow with number types",
+          );
+        },
+      );
+      await t.step(
+        "Register workflow with typed task and workflow references",
+        async (t) => {
+          await expectRegisterSuccess(
+            "./test-cases/typedTasks/typedReferences.js",
+            "denoland/deno:distroless-1.24.1",
+            [
+              'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"usesTypedReferences","version":"v1"}',
+              'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"usesTypedReferences","version":"v1"}',
+              "",
+            ].join("\n"),
+            "Failed to register workflow with typed references",
+          );
+        },
       );
     },
   );
@@ -520,6 +540,29 @@ Deno.test("pterodactyl tests", async (t) => {
           "",
         ].join("\n"),
         "Failed to register task with string types",
+      );
+    },
+  );
+
+  await t.step(
+    "Register typed workflow with typed primitive bindings",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/typedTasks/typedConstantInput.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"addNumbers","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"not","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"joinStrings","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"addNumbersWorkflow","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"notWorkflow","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"joinStringsWorkflow","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"addNumbersWorkflow","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"notWorkflow","version":"v1"}',
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"joinStringsWorkflow","version":"v1"}',
+		""
+        ].join("\n"),
+        "Failed to register workflow with typed primitive bindings",
       );
     },
   );
