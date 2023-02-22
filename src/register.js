@@ -3,6 +3,15 @@ import { needsFilePrefix } from "./utils.js";
 import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
+const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
+  String,
+  "STRING",
+  (v) => (typeof v === "string"),
+], [
+  Boolean,
+  "BOOLEAN",
+  (v) => (typeof v === "boolean"),
+]];
 
 export function isSerializable(value) {
   const isPlainObj = Object.getPrototypeOf(value) == Object.getPrototypeOf({});
@@ -38,21 +47,49 @@ class PromiseBinding {
 }
 
 class PrimitiveBinding {
-  constructor(value) {
+  constructor(value, bindingType) {
     this.value = value;
+    this.updateType(bindingType);
+  }
+
+  updateType(bindingType) {
+    this.bindingType = bindingType;
+    let [_, typeString, typeValidator] = isValidType(bindingType) ??
+      [undefined, undefined, (v) => true];
+    if (!typeValidator(this.value)) {
+      throw `${this.value} is not a valid ${typeString}`;
+    }
   }
 
   bindingObj() {
+    let primitive = { string_value: JSON.stringify(this.value) };
+    switch (this.bindingType) {
+      case Number:
+        primitive = { float_value: this.value };
+        break;
+      case String:
+        primitive = { string_value: this.value };
+        break;
+      case Boolean:
+        primitive = { "boolean": this.value };
+        break;
+    }
     return {
       binding: {
         scalar: {
-          primitive: {
-            string_value: JSON.stringify(this.value),
-          },
+          primitive: primitive,
         },
       },
     };
   }
+}
+
+function isValidType(paramType) {
+  return validTypes.find(([validType, _]) => validType === paramType);
+}
+
+function isValidTypeName(typeName) {
+  return validTypes.find(([_, validTypeName]) => validTypeName === typeName);
 }
 
 function getNameFromFunction(f) {
@@ -62,29 +99,30 @@ function getNameFromFunction(f) {
   return f.name;
 }
 
-function generateVariable(variableName) {
+function generateVariable(variableName, variableType) {
+  const variableTypeName = isValidType(variableType)?.[1] ?? "STRING";
   return {
     [variableName]: {
       type: {
-        simple: "STRING",
+        simple: variableTypeName,
       },
       description: variableName,
     },
   };
 }
 
-function generateAllVariables(name, count) {
-  let variables = {};
+function generateAllVariableNames(name, count) {
+  let names = [];
   for (let i = 0; i < count; i++) {
-    variables = { ...variables, ...generateVariable(name + i) };
+    names.push(name + i);
   }
-  return variables;
+  return names;
 }
 
-function generateAllNamedVariables(names) {
+function generateAllNamedVariables(names, types) {
   let variables = {};
-  for (let name of names) {
-    variables = { ...variables, ...generateVariable(name) };
+  for (let i = 0; i < names.length; i++) {
+    variables = { ...variables, ...generateVariable(names[i], types?.[i]) };
   }
   return variables;
 }
@@ -129,14 +167,34 @@ function generateContainer(pkg, image, taskName) {
   };
 }
 
-function checkParamNames(options, inputCount) {
+function checkParamOptions(options, inputCount) {
+  checkParamTypesCardinality(options, inputCount);
+  checkParamTypesContent(options);
   checkParamNamesCardinality(options, inputCount);
   checkParamNamesContent(options);
+}
+
+function checkParamTypesCardinality(options, inputCount) {
+  if (options?.paramTypes && options.paramTypes.length != inputCount) {
+    throw `Provided paramTypes array does not match function parameter count; function has ${inputCount} parameters, provided ${options.paramTypes.length} paramTypes`;
+  }
 }
 
 function checkParamNamesCardinality(options, inputCount) {
   if (options?.paramNames && options.paramNames.length != inputCount) {
     throw `Provided paramNames array does not match function parameter count; function has ${inputCount} parameters, provided ${options.paramNames.length} paramNames`;
+  }
+}
+
+function checkParamTypesContent(options) {
+  const invalidParamTypes = (options?.paramTypes ?? []).filter((paramType) =>
+    !isValidType(paramType)
+  );
+  if (invalidParamTypes.length > 0) {
+    const errorMessage = invalidParamTypes.map((invalidType) =>
+      `Provided paramType ${invalidType} is not a valid type`
+    ).concat("paramType must be one of Number, String, or Boolean").join("; ");
+    throw errorMessage;
   }
 }
 
@@ -158,6 +216,17 @@ function checkParamNamesContent(options) {
     options.paramNames.length != (new Set(options.paramNames)).size
   ) {
     throw "Provided paramNames array contain duplicate entries; paramNames entries cannot be duplicates";
+  }
+}
+
+function checkOutputOptions(options) {
+  checkOutputType(options);
+  checkOutputName(options);
+}
+
+function checkOutputType(options) {
+  if (options?.outputType && !isValidType(options.outputType)) {
+    throw `Provided outputType ${options.outputType} is not a valid type; outputType must be one of Number, String, or Boolean`;
   }
 }
 
@@ -184,16 +253,18 @@ function convertToTask(
 ) {
   const taskName = getNameFromFunction(f);
   const inputCount = f.length;
-  checkParamNames(options, inputCount);
-  checkOutputName(options);
+  checkParamOptions(options, inputCount);
+  checkOutputOptions(options);
   checkSecrets(options);
 
-  const inputs = options?.paramNames
-    ? generateAllNamedVariables(options.paramNames)
-    : generateAllVariables("input", inputCount);
-  const output = options?.outputName
-    ? generateAllNamedVariables([options.outputName])
-    : generateAllVariables("output", 1);
+  const inputs = generateAllNamedVariables(
+    options?.paramNames ?? generateAllVariableNames("input", inputCount),
+    options?.paramTypes,
+  );
+  const output = generateAllNamedVariables([
+    options?.outputName ?? generateAllVariableNames("output", 1)[0],
+  ], [options?.outputType]);
+
   // validate secrets
   const secrets = options?.secrets?.map((x) => new Secret(x));
 
@@ -211,7 +282,7 @@ function convertToTask(
         metadata: {
           runtime: {
             type: "OTHER",
-            version: "0.4.1",
+            version: "0.5.0",
             flavor: "pterodactyl",
           },
           retries: {},
@@ -240,12 +311,12 @@ function convertToTask(
           : {}),
         config: {
           inputOrder: Object.keys(inputs).join(","),
-          ...Object.fromEntries(
+          ...(options?.paramTypes ? {} : Object.fromEntries(
             Object.keys(inputs).map((name) => [`input-${name}`, "untyped"]),
-          ),
-          ...Object.fromEntries(
+          )),
+          ...(options?.outputType ? {} : Object.fromEntries(
             Object.keys(output).map((name) => [`output-${name}`, "untyped"]),
-          ),
+          )),
         },
       },
     },
@@ -310,6 +381,15 @@ function sameValues(arr1, arr2) {
   return true;
 }
 
+function getParamTypeFromTaskReference(reference, name) {
+  if (reference.spec.template.config[`input-${name}`] === "untyped") {
+    return undefined;
+  }
+  let typeName =
+    reference.spec.template.interface.inputs.variables[name].type.simple;
+  return isValidTypeName(typeName)?.[0];
+}
+
 function passedArgumentsWithInputOrder(
   reference,
   args,
@@ -339,7 +419,10 @@ function passedArgumentsWithInputOrder(
     }
     if (!(arg instanceof PromiseBinding)) {
       if (isSerializable(arg)) {
-        arg = new PrimitiveBinding(arg);
+        arg = new PrimitiveBinding(
+          arg,
+          getParamTypeFromTaskReference(reference, paramName),
+        );
       } else {
         throw `Argument for parameter ${paramName} of ${recieverTypeName} ${name} is not a task output or workflow input`;
       }
@@ -376,7 +459,10 @@ function passedArgumentsWithoutInputOrder(reference, args) {
     }
     if (!(arg instanceof PromiseBinding)) {
       if (isSerializable(arg)) {
-        arg = new PrimitiveBinding(arg);
+        arg = new PrimitiveBinding(
+          arg,
+          getParamTypeFromTaskReference(reference, paramName),
+        );
       } else {
         throw `Argument for parameter ${paramName} of task reference ${name} is not a task output or workflow input`;
       }
@@ -416,6 +502,12 @@ function taskReferenceInputCaptureObj(registeredObjs, callsObj, name) {
   };
 }
 
+function getParamTypeFromLaunchPlanReference(reference, name) {
+  let typeName =
+    reference.closure.expected_inputs.parameters[name]?.var.type.simple;
+  return isValidTypeName(typeName)?.[0];
+}
+
 function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
   return (...args) => {
     let passedArguments = [];
@@ -443,7 +535,10 @@ function launchPlanReferenceInputCaptureObj(registeredObjs, callsObj, name) {
       }
       if (!(arg instanceof PromiseBinding)) {
         if (isSerializable(arg)) {
-          arg = new PrimitiveBinding(arg);
+          arg = new PrimitiveBinding(
+            arg,
+            getParamTypeFromLaunchPlanReference(reference, paramName),
+          );
         } else {
           throw `Argument for parameter ${paramName} of launch plan reference ${name} is not a task output or workflow input`;
         }
@@ -510,8 +605,8 @@ async function convertToWorkflow(
 ) {
   const workflowName = getNameFromFunction(f);
   const inputCount = f.length;
-  checkParamNames(options, inputCount);
-  checkOutputName(options);
+  checkParamOptions(options, inputCount);
+  checkOutputOptions(options);
 
   const inputs = [];
   for (let i = 0; i < inputCount; i++) {
@@ -537,7 +632,7 @@ async function convertToWorkflow(
   );
   if (!(result instanceof PromiseBinding)) {
     if (isSerializable(result)) {
-      result = new PrimitiveBinding(result);
+      result = new PrimitiveBinding(result, options?.outputType);
     } else {
       throw `Workflow ${workflowName} output is not task output or workflow input`;
     }
@@ -575,12 +670,16 @@ async function convertToWorkflow(
         id: workflowId,
         interface: {
           inputs: {
-            variables: options?.paramNames
-              ? generateAllNamedVariables(options.paramNames)
-              : generateAllVariables("input", inputCount),
+            variables: generateAllNamedVariables(
+              options?.paramNames ??
+                generateAllVariableNames("input", inputCount),
+              options?.paramTypes,
+            ),
           },
           outputs: {
-            variables: generateAllNamedVariables([workflowOutputName]),
+            variables: generateAllNamedVariables([workflowOutputName], [
+              options?.outputType,
+            ]),
           },
         },
         nodes: [
@@ -610,23 +709,23 @@ function makeLaunchPlan(workflowobj, options) {
   let parameters = {};
   const inputCount =
     Object.keys(workflowobj.spec.template.interface.inputs.variables).length;
-  checkParamNames(options, inputCount);
+  checkParamOptions(options, inputCount);
 
   for (
     let i = 0;
     i < inputCount;
     i++
   ) {
-    const parameterName = options?.paramNames
-      ? options?.paramNames[i]
-      : `input${i}`;
+    const parameterName = options?.paramNames?.[i] ?? `input${i}`;
+    const parameterType = isValidType(options?.paramTypes?.[i])?.[1] ??
+      "STRING";
     parameters = {
       ...parameters,
       ...{
         [parameterName]: {
           var: {
             type: {
-              simple: "STRING",
+              simple: parameterType,
             },
             description: parameterName,
           },
@@ -675,7 +774,12 @@ function handleTaskRegistration(
     options,
   );
   registeredObjs.tasks[taskName] = taskobj;
-  return inputCaptureObj(registeredObjs, callsObj, taskName, isAsync);
+  return inputCaptureObj(
+    registeredObjs,
+    callsObj,
+    taskName,
+    isAsync,
+  );
 }
 
 function handleTaskReferenceSeen(
