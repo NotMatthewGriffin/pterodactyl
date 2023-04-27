@@ -88,11 +88,19 @@ export function workflow(func, options = {}) {
   return window.pterodactylConfig.workflowTransformer(func, options);
 }
 
+/**
+ * Flyte supports integer as a datatype but there is not a javascript type
+ * available like Number, Boolean, or String. This constant's purpose is to be
+ * used as a type when specifying input and output types.
+ */
+export const Integer = Number.parseInt;
+
 const pterodactyl = {
-  task: task,
-  taskReference: taskReference,
-  launchPlanReference: launchPlanReference,
-  workflow: workflow,
+  task,
+  taskReference,
+  launchPlanReference,
+  workflow,
+  Integer,
 };
 
 export default pterodactyl;

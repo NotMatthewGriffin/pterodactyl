@@ -1,9 +1,9 @@
-import * as _ from "./pterodactyl.js";
+import { Integer } from "./pterodactyl.js";
 import { needsFilePrefix } from "./utils.js";
 import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
-const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
+export const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
   String,
   "STRING",
   (v) => (typeof v === "string"),
@@ -11,6 +11,10 @@ const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
   Boolean,
   "BOOLEAN",
   (v) => (typeof v === "boolean"),
+], [
+  Integer,
+  "INTEGER",
+  Number.isSafeInteger,
 ]];
 
 export function isSerializable(value) {
@@ -72,6 +76,9 @@ class PrimitiveBinding {
         break;
       case Boolean:
         primitive = { "boolean": this.value };
+        break;
+      case Integer:
+        primitive = { "integer": this.value };
         break;
     }
     return {
