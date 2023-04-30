@@ -1,4 +1,4 @@
-import { task, workflow } from "../../pterodactyl.js";
+import { Integer, task, workflow } from "../../pterodactyl.js";
 
 const addNumbers = task(function addNumbers(a, b) {
   return a + b;
@@ -40,4 +40,18 @@ workflow(function joinStringsWorkflow() {
   return "hello world";
 }, {
   outputType: String,
+});
+
+const addIntegers = task(function addIntegers(a, b) {
+  return a + b;
+}, {
+  paramTypes: [Integer, Integer],
+  outputType: Integer,
+});
+
+workflow(function addIntegersWorkflow() {
+  addIntegers(1, 2);
+  return 1;
+}, {
+  outputType: Integer,
 });
