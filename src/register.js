@@ -3,7 +3,7 @@ import { needsFilePrefix } from "./utils.js";
 import { Secret } from "./secret.js";
 
 const AsyncFunction = (async () => {}).constructor;
-export const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
+const validTypes = [[Number, "FLOAT", (v) => (typeof v === "number")], [
   String,
   "STRING",
   (v) => (typeof v === "string"),
