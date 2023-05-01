@@ -480,7 +480,7 @@ Deno.test("pterodactyl tests", async (t) => {
     "Register typed workflows and use them in references",
     async (t) => {
       await t.step(
-        "Register typed workflow with Number paramTypes and output types",
+        "Register typed workflow with Number paramTypes and output type",
         async (t) => {
           await expectRegisterSuccess(
             "./test-cases/typedTasks/typedSum.js",
@@ -515,7 +515,7 @@ Deno.test("pterodactyl tests", async (t) => {
   );
 
   await t.step(
-    "Register typed task with boolean paramTypes and output types",
+    "Register typed task with boolean paramTypes and output type",
     async (t) => {
       await expectRegisterSuccess(
         "./test-cases/typedTasks/booleanOr.js",
@@ -530,7 +530,7 @@ Deno.test("pterodactyl tests", async (t) => {
   );
 
   await t.step(
-    "Register typed task with string paramTypes and output types",
+    "Register typed task with string paramTypes and output type",
     async (t) => {
       await expectRegisterSuccess(
         "./test-cases/typedTasks/concat.js",
@@ -545,6 +545,21 @@ Deno.test("pterodactyl tests", async (t) => {
   );
 
   await t.step(
+    "Register typed task with integer paramTypes and output type",
+    async (t) => {
+      await expectRegisterSuccess(
+        "./test-cases/typedTasks/integerTypedSum.js",
+        "denoland/deno:distroless-1.24.1",
+        [
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"integerSumNumbers","version":"v1"}',
+          "",
+        ].join("\n"),
+        "Failed to register task with integer types",
+      );
+    },
+  );
+
+  await t.step(
     "Register typed workflow with typed primitive bindings",
     async (t) => {
       await expectRegisterSuccess(
@@ -554,13 +569,16 @@ Deno.test("pterodactyl tests", async (t) => {
           'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"addNumbers","version":"v1"}',
           'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"not","version":"v1"}',
           'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"joinStrings","version":"v1"}',
+          'Registered {"resource_type":"TASK","project":"flytesnacks","domain":"development","name":"addIntegers","version":"v1"}',
           'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"addNumbersWorkflow","version":"v1"}',
           'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"notWorkflow","version":"v1"}',
           'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"joinStringsWorkflow","version":"v1"}',
+          'Registered {"resource_type":"WORKFLOW","project":"flytesnacks","domain":"development","name":"addIntegersWorkflow","version":"v1"}',
           'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"addNumbersWorkflow","version":"v1"}',
           'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"notWorkflow","version":"v1"}',
           'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"joinStringsWorkflow","version":"v1"}',
-		""
+          'Registered {"resource_type":"LAUNCH_PLAN","project":"flytesnacks","domain":"development","name":"addIntegersWorkflow","version":"v1"}',
+          "",
         ].join("\n"),
         "Failed to register workflow with typed primitive bindings",
       );

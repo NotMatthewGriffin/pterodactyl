@@ -1,5 +1,6 @@
 export {
   default,
+  Integer,
   launchPlanReference,
   task,
   taskReference,
